@@ -1,0 +1,54 @@
+services:
+  users_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_users
+    networks:
+      - services_network
+    volumes:
+      - redis_users_data:/data
+    ports:
+      - "6379"
+    restart: on-failure
+
+  users_db:
+    image: postgres
+    container_name: db_users
+    restart: on-failure
+    env_file:
+      - ./services/users/.env
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+    ports:
+      - "5432"
+    networks:
+      - services_network
+
+  users_service:
+    build:
+      context: ./services/users
+      dockerfile: Dockerfile
+    container_name: users_service
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000" 
+    volumes:
+      - ./services/users:/app/
+    ports:
+      - "8000:8000" # dont expose port with production mode
+    env_file:
+      - ./services/users/.env
+    depends_on:
+      - users_redis
+      - users_db
+    networks:
+      - services_network
+      - keycloak_keycloak_network
+
+volumes:
+  postgres_users_data:
+  redis_users_data:
+
+networks:
+  services_network:
+    driver: bridge
+
+  keycloak_keycloak_network:
+    external: true

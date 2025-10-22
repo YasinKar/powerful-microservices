@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres
+    hostname: ${POSTGRES_HOST}
+    container_name: postgres_keycloak
+    restart: on-failure
+    environment: 
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env
+    expose:
+      - ${POSTGRES_PORT}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data
+    networks: 
+      - keycloak_network
+
+  pgadmin:
+    container_name: pgadmin_keycloak
+    image: dpage/pgadmin4
+    depends_on:
+      - postgres
+    ports:
+      - "5050:80"
+    env_file:
+      - .env
+    networks:
+      - keycloak_network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak_container
+    # command: start --https-certificate-file=/certs/tls.pem --https-certificate-key-file=/certs/tls.pem --http-port=8443
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      # KC_HTTPS_CERTIFICATE_FILE: /certs/tls.pem
+      KC_HOSTNAME: ${KC_HOSTNAME}
+    ports:
+      - 8080:8080   
+    # volumes:
+    #   - ./certs:/certs
+    depends_on:
+      - postgres
+    networks:
+      - keycloak_network
+
+
+networks:
+  keycloak_network:
+    driver: bridge
+
+volumes:
+  postgres_keycloak_data:
