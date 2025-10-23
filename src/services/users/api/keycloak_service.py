@@ -342,11 +342,11 @@ class TokenKeycloak(BaseKeyCloak):
         except Exception as e:
             logging.error(f"Error for get user token: {e}")
             return self.STATUS_SERVER_ERROR
-
+        
     def get_token_passwordless(self):
         try:
             token = self.keycloak_passwordless.token(
-                self.username, grant_type=["client_credentials"]
+                grant_type="client_credentials"
             )
             return token
         except Exception as e:

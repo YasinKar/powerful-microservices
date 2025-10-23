@@ -219,7 +219,6 @@ class OTPSigninSerializer(serializers.Serializer):
     username = serializers.CharField(required=True, write_only=True)
     otp = serializers.IntegerField(required=True, write_only=True)
     access_token = serializers.CharField(read_only=True)
-    refresh_token = serializers.CharField(read_only=True)
     token_type = serializers.CharField(read_only=True)
     expires_in = serializers.CharField(read_only=True)
 
@@ -269,17 +268,15 @@ class OTPSigninSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        User = get_user_model()
-        user = User.objects.get(username=validated_data["username"])
         token = TokenKeycloak()
         token.username = validated_data["username"]
-        token.password = user.password
-        token_info = token.get_token()
+        token_info = token.get_token_passwordless()
         if token_info in [404, 500]:
             raise serializers.ValidationError({"message": "service authentications error"}, code=500)
         return {
             "access_token": token_info['access_token'],
-            "refresh_token": token_info['refresh_token'],
+            "token_type": token_info['token_type'],
+            "expires_in": token_info['expires_in'],
         }
 
 
