@@ -42,9 +42,64 @@ services:
       - services_network
       - keycloak_keycloak_network
 
+  products_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_products
+    volumes:
+      - redis_products_data:/data
+    ports:
+      - "6380"
+    restart: on-failure
+    networks:
+      - services_network
+
+  products_service:
+    build:
+      context: ./services/products
+      dockerfile: Dockerfile
+    container_name: products_service
+    ports:
+      - "8001:8001" # dont expose port with production mode
+    env_file:
+      - ./services/products/.env
+    depends_on:
+      - products_redis
+      - products_db
+    networks:
+      - services_network
+      - keycloak_keycloak_network
+    volumes:
+      - ./services/products/app:/app/
+
+  products_db:
+    image: postgres
+    container_name: db_products
+    restart: on-failure
+    env_file:
+      - ./services/products/.env
+    volumes:
+      - postgres_products_data:/var/lib/postgresql/data
+    ports:
+      - "5434"
+    networks:
+      - services_network
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    ports:
+      - "5050:5050"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+
+
 volumes:
   postgres_users_data:
   redis_users_data:
+  postgres_products_data:
+  redis_products_data:
+
 
 networks:
   services_network:

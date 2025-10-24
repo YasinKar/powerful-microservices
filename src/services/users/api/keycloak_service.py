@@ -21,7 +21,6 @@ class BaseKeyCloak:
         self._new_username = None
         self.keycloak_admin = self.admin_connect()
         self.keycloak_openid = self.openid_connect()
-        self.keycloak_passwordless = self.admin_connect_passwordless()
 
     @property
     def username(self):
@@ -71,20 +70,6 @@ class BaseKeyCloak:
         except Exception as e:
             logging.error(f"Error connecting to Keycloak: {e}")
             return None
-
-    def admin_connect_passwordless(self):
-        try:
-            keycloak_openid = KeycloakOpenID(
-                server_url=f"{settings.KEYCLOAK_SERVER_URL}/auth",
-                client_id=settings.KEYCLOAK_CLIENT_ID,
-                realm_name=settings.KEYCLOAK_REALM_NAME,
-                client_secret_key=settings.KEYCLOAK_CLIENT_SECRET_KEY,
-            )
-            keycloak_openid.well_known()
-            return keycloak_openid
-        except Exception as e:
-            logging.error(f"Error connecting to Keycloak: {e}")
-            return self.STATUS_SERVER_ERROR
 
     def openid_connect(self):
         try:
@@ -345,12 +330,25 @@ class TokenKeycloak(BaseKeyCloak):
         
     def get_token_passwordless(self):
         try:
-            token = self.keycloak_passwordless.token(
-                grant_type="client_credentials"
+            user_id = self.keycloak_admin.get_user_id(self.username)
+            if user_id is None:
+                raise ValueError(f"User {self.username} not found")
+
+            admin_token = self.keycloak_admin.connection.token.get('access_token')
+            if not admin_token:
+                raise ValueError("Admin token not available")
+
+            impersonated_token = self.keycloak_openid.exchange_token(
+                token=admin_token,
+                subject=user_id, 
+                audience=None,
+                subject_token_type='urn:ietf:params:oauth:token-type:access_token',
+                requested_token_type='urn:ietf:params:oauth:token-type:access_token',
+                scope='openid'
             )
-            return token
+            return impersonated_token
         except Exception as e:
-            logging.error(f"Error for get user token: {e}")
+            logging.error(f"Error impersonating user {self.username}: {e}")
             return self.STATUS_SERVER_ERROR
 
     def refresh_token(self):
