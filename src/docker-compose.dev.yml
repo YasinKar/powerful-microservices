@@ -1,4 +1,6 @@
 services:
+  # Users
+
   users_redis:
     image: redis:7.0.11-alpine
     container_name: redis_users
@@ -42,6 +44,7 @@ services:
       - services_network
       - keycloak_keycloak_network
 
+  # Products
   products_redis:
     image: redis:7.0.11-alpine
     container_name: redis_products
@@ -84,6 +87,50 @@ services:
     networks:
       - services_network
 
+  # Orders
+  orders_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_orders
+    volumes:
+      - redis_orders_data:/data
+    ports:
+      - "6380"
+    restart: on-failure
+    networks:
+      - services_network
+
+  orders_service:
+    build:
+      context: ./services/orders
+      dockerfile: Dockerfile
+    container_name: orders_service
+    ports:
+      - "8002:8002" # dont expose port with production mode
+    env_file:
+      - ./services/orders/.env
+    depends_on:
+      - orders_redis
+      - orders_mongodb
+    networks:
+      - services_network
+      - keycloak_keycloak_network
+    volumes:
+      - ./services/orders/app:/app/
+
+  orders_mongodb:
+    image: mongo
+    container_name: orders_mongodb
+    restart: on-failure
+    env_file:
+      - ./services/orders/.env
+    volumes:
+      - mongo_orders_data:/data/db
+    ports:
+      - "27017"
+    networks:
+      - services_network
+
+  # Extra
   pgadmin:
     container_name: pgadmin
     image: dpage/pgadmin4
@@ -93,12 +140,26 @@ services:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=admin
 
+  mongo-express:
+    image: mongo-express
+    container_name: mongo_express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+      ME_CONFIG_BASICAUTH_ENABLED: true
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: admin
+
 
 volumes:
   postgres_users_data:
   redis_users_data:
   postgres_products_data:
   redis_products_data:
+  mongo_orders_data:
+  redis_orders_data:
 
 
 networks:
