@@ -8,6 +8,7 @@ from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
 
 from core.authentication import CurrentUserDep
+from core.redis_cache import get_cache, set_cache
 from dependencies import SessionDep
 from models.product import (
     Product, ProductCreate,
@@ -139,6 +140,11 @@ class ProductService:
 
     @staticmethod
     async def get_product(db: SessionDep, product_id: uuid.UUID) -> Product:
+        cache_key = f"product:{product_id}"
+        cached = get_cache(cache_key)
+        if cached:
+            return Product(**cached)
+        
         statement = (
             select(Product)
             .where(Product.id == product_id)
@@ -152,6 +158,8 @@ class ProductService:
         if not result:
             logger.warning(f"Product not found: {product_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        
+        set_cache(cache_key, result.model_dump(), expire=300)
         return result
 
     @staticmethod
