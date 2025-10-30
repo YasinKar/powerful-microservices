@@ -5,7 +5,7 @@ from django.core.validators import RegexValidator
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    username = models.CharField(max_length=250, unique=True,verbose_name='your username')
+    username = models.CharField(max_length=250, unique=True,verbose_name='username')
     is_admin = models.BooleanField(default=False, verbose_name="user is admin")
     
     objects=UserManager()
@@ -30,9 +30,6 @@ class ProfileModel(models.Model):
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250, null=True, blank=True)
-    phone_regex = RegexValidator(regex=r'^\+?1?\d{9,11}$', message="Phone number must be entered in the format: '09129876543'. Up to 15 digits allowed.")
-    phone_number = models.CharField(validators=[phone_regex], max_length=11, null=True, blank=True) # Validators should be a list
-    keycloak_id = models.PositiveBigIntegerField()
 
     def __str__(self) -> str:
         return f"{self.user.username} - ({self.pk})"
