@@ -24,13 +24,9 @@ class SignUpView(generics.CreateAPIView):
             user = serializer.save()
             return Response({"message": "User registered successfully"}, status=201)
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values())) if error_codes else 400
-            print(code)
-            print(code)
             return Response(
-                exc.detail, 
-                status=200
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -50,12 +46,9 @@ class VerifyUsernameView(APIView):
                 status=200
             )
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values()))[0] if error_codes else 400
-            print(code)
             return Response(
-                exc.detail, 
-                status=code
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -69,12 +62,9 @@ class OTPSigninView(APIView):
             serializer.save()
             return Response(serializer.data, status=200)
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values()))[0] if error_codes else 400
-            print(code)
             return Response(
-                exc.detail, 
-                status=code
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -88,12 +78,9 @@ class PasswordSigninView(APIView):
             serializer.save()
             return Response(serializer.data, status=200)
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values()))[0] if error_codes else 400
-            print(code)
             return Response(
-                exc.detail, 
-                status=code
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -107,12 +94,9 @@ class UsernameSendOTPView(APIView):
             serializer.save()
             return Response({"message":"send otp for you"}, status=200)
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values())) if error_codes else 400
-            print(code)
             return Response(
-                exc.detail, 
-                status=200 
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -131,12 +115,9 @@ class ChangePaswordView(APIView):
             user = serializer.save()
             return Response({'message': 'password change successfully'}, status=status.HTTP_200_OK)
         except ValidationError as exc:
-            error_codes = exc.get_codes() or 400
-            code = next(iter(error_codes.values()))[0] if error_codes else 400
-            print(code)
             return Response(
-                exc.detail, 
-                status=code  
+                exc.detail,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -146,7 +127,7 @@ class ProfileView(APIView):
     authentication_classes = [KeycloakAuthentication]
 
     def get(self, request):
-        profile = get_object_or_404(ProfileModel, user=request.user)
+        profile = get_object_or_404(ProfileModel, user=request.user.username)
         serializer = self.serializer_class(profile, context={"request":request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 

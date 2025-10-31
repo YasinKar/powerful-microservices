@@ -130,6 +130,27 @@ services:
     networks:
       - services_network
 
+  # Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./gateway/.env  # Optional: for any env vars
+    depends_on:
+      - users_service
+      - products_service
+      - orders_service
+      - users_redis  # For rate limiting
+    networks:
+      - services_network
+    volumes:
+      - ./gateway:/app/
+    restart: on-failure
+    
   # Extra
   pgadmin:
     container_name: pgadmin
@@ -145,7 +166,7 @@ services:
     container_name: mongo_express
     restart: always
     ports:
-      - 8081:8081
+      - 8082:8082
     environment:
       ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
       ME_CONFIG_BASICAUTH_ENABLED: true

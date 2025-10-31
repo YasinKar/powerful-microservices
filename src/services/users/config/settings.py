@@ -35,6 +35,7 @@ else:
     ALLOWED_HOSTS = [
         f"localhost:{os.environ.get('DJANGO_PORT')}",
         f"127.0.0.1:{os.environ.get('DJANGO_PORT')}",
+        f"users_service:{os.environ.get('DJANGO_PORT')}",
     ]
 
 
