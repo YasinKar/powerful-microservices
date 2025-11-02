@@ -51,5 +51,7 @@ class Settings(BaseSettings):
     KEYCLOAK_REALM_NAME: str
     KEYCLOAK_CLIENT_SECRET_KEY: str
 
+    KAFKA_SERVER: str
+
 
 settings = Settings()

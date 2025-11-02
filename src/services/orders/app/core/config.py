@@ -20,20 +20,16 @@ class Settings(BaseSettings):
     # Database 
     MONGO_HOST: str
     MONGO_PORT: int
-    MONGO_USER: str | None = None
-    MONGO_PASSWORD: str | None = None
-    MONGO_DB: str
-    
-    REDIS_HOST: str = "redis"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_PASSWORD: str | None = None
-    REDIS_URL: str | None = None
+    MONGO_INITDB_ROOT_USERNAME: str | None = None
+    MONGO_INITDB_ROOT_PASSWORD: str | None = None
+    MONGO_INITDB_DATABASE: str
 
     KEYCLOAK_SERVER_URL: str
     KEYCLOAK_CLIENT_ID: str
     KEYCLOAK_REALM_NAME: str
     KEYCLOAK_CLIENT_SECRET_KEY: str
+
+    KAFKA_SERVER: str
 
 
 settings = Settings()

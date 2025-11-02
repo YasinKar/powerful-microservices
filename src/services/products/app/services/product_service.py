@@ -16,6 +16,7 @@ from models.product import (
     Brand, ProductImage,
     PaginatedProducts
 )
+from events.kafka_producer import publish_event
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,17 @@ class ProductService:
         db.commit()
 
         logger.info(f"Product created: {db_product.name}")
+        
+        # Publish ProductCreated event in `products` topic -> Consumer: OrdersService
+        event = {
+            "event_type": "ProductCreated",
+            "product": db_product.model_dump(),
+        }
+        publish_event(
+            topic="products",
+            value=event
+        )
+
         return db_product
 
     @staticmethod
@@ -122,6 +134,16 @@ class ProductService:
         db.delete(db_product)
         db.commit()
         logger.info(f"Product deleted: {product_id}")
+
+        # Publish ProductDeleted event in `products` topic -> Consumer: OrdersService
+        event = {
+            "event_type": "ProductDeleted",
+            "product": db_product.model_dump(),
+        }
+        publish_event(
+            topic="products",
+            value=event
+        )
 
     @staticmethod
     async def delete_product_image(db: SessionDep, image_id: uuid.UUID, current_user: CurrentUserDep) -> None:

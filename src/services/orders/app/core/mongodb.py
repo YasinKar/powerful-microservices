@@ -1,13 +1,13 @@
 from pymongo import MongoClient
-from app.core.config import settings
+from core.config import settings
 
 
-if settings.MONGO_USER and settings.MONGO_PASSWORD:
+if settings.MONGO_INITDB_ROOT_USERNAME and settings.MONGO_INITDB_ROOT_PASSWORD:
     client = MongoClient(
         host=settings.MONGO_HOST,
         port=settings.MONGO_PORT,
-        username=settings.MONGO_USER,
-        password=settings.MONGO_PASSWORD,
+        username=settings.MONGO_INITDB_ROOT_USERNAME,
+        password=settings.MONGO_INITDB_ROOT_PASSWORD,
     )
 else:
     client = MongoClient(
@@ -15,4 +15,4 @@ else:
         port=settings.MONGO_PORT
     )
 
-db = client[settings.MONGO_DB]
+db = client[settings.MONGO_INITDB_DATABASE]

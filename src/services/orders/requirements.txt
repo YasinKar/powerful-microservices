@@ -7,6 +7,7 @@ certifi==2025.10.5
 cffi==2.0.0
 charset-normalizer==3.4.4
 click==8.3.0
+confluent-kafka==2.12.1
 cryptography==46.0.3
 deprecation==2.1.0
 dnspython==2.8.0
