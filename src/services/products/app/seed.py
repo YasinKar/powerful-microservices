@@ -39,6 +39,7 @@ class ProductFactory(factory.Factory):
 
     id = factory.LazyFunction(uuid.uuid4)
     name = factory.LazyAttribute(lambda _: fake.word())
+    price = Faker("random_int", min=1000, max=500000)
     description = factory.LazyAttribute(lambda _: fake.paragraph())
     stock = factory.LazyAttribute(lambda _: random.randint(0, 100))
     category = factory.SubFactory(CategoryFactory)

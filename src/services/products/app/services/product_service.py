@@ -118,6 +118,17 @@ class ProductService:
         db.commit()
         db.refresh(db_product)
         logger.info(f"Product updated: {db_product.name}")
+
+        # Publish ProductUpdated event in `products` topic -> Consumer: OrdersService
+        event = {
+            "event_type": "ProductUpdated",
+            "product": db_product.model_dump(),
+        }
+        publish_event(
+            topic="products",
+            value=event
+        )
+        
         return db_product
 
     @staticmethod

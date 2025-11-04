@@ -21,6 +21,7 @@ class Product(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
+    price: int
     stock: PositiveInt = Field(default=0)
     category_id: uuid.UUID = Field(foreign_key="category.id")
     brand_id: uuid.UUID = Field(foreign_key="brand.id")
@@ -35,6 +36,7 @@ class Product(SQLModel, table=True):
 
 class ProductCreate(SQLModel):
     name: str
+    price: int
     description: Optional[str] = None
     stock: PositiveInt = 0
     category_id: uuid.UUID
@@ -47,6 +49,7 @@ class ProductCreate(SQLModel):
 class ProductUpdate(SQLModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    price: Optional[int] = None
     stock: Optional[PositiveInt] = None
     category_id: Optional[uuid.UUID] = None
     brand_id: Optional[uuid.UUID] = None

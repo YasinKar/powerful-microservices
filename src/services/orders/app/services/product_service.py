@@ -3,6 +3,7 @@ from typing import Dict, Any
 
 from core.mongodb import db
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,7 +22,6 @@ class ProductService:
             if existing:
                 logger.info(f"Product {product_id} already exists, skipping insert.")
                 return
-
             ProductService.collection.insert_one(product_data)
             logger.info(f"Product {product_id} created in order service DB.")
         except Exception as e:
@@ -63,3 +63,14 @@ class ProductService:
                 logger.info(f"Product {product_id} not found in MongoDB.")
         except Exception as e:
             logger.error(f"Failed to delete product: {e}")
+
+    @staticmethod
+    def get_product(product_id: str):
+        try:
+            product = ProductService.collection.find_one({"id": product_id})
+            if not product:
+                logger.info(f"Product {product_id} not found.")
+            return product
+        except Exception as e:
+            logger.error(f"Failed to get product(s): {e}")
+            return None
