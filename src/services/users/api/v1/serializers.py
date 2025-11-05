@@ -11,6 +11,7 @@ from rest_framework import serializers
 
 from api.models import ProfileModel
 from api.keycloak_service import UserKeyCloak, TokenKeycloak
+from events.kafka_producer import publish_event
 
 
 User = get_user_model() 
@@ -110,11 +111,32 @@ class SignUpSerializer(serializers.Serializer):
         )
 
         if phone:
-            # otp_phone_sender(otp, validated_data['username'])
-            pass
+            # Publish UserRegistered event in `notifications` topic -> Consumer: Notifications Service
+            event = {
+                "event_type": "UserRegistered",
+                "data": {
+                    "user_type": "phone",
+                    "username": validated_data['username'],
+                    "otp": otp,
+                },
+            }
+            publish_event(
+                topic="users",
+                value=event
+            )
         if email:
-            # otp_email_sender(otp, validated_data['username'])
-            pass
+            event = {
+                "event_type": "UserRegistered",
+                "data": {
+                    "user_type": "email",
+                    "username": validated_data['username'],
+                    "otp": otp,
+                },
+            }
+            publish_event(
+                topic="users",
+                value=event
+            )
 
         return user
 

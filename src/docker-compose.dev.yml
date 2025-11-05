@@ -132,6 +132,52 @@ services:
     volumes:
       - ./services/orders/app:/app/
 
+  # Notifications
+  notifications_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_notifications
+    volumes:
+      - redis_notifications_data:/data
+    ports:
+      - "6381"
+    restart: on-failure
+    networks:
+      - services_network
+
+  notifications_service:
+    build:
+      context: ./services/notifications
+      dockerfile: Dockerfile
+    container_name: notifications_service
+    ports:
+      - "8004:8004" # dont expose port with production mode
+    env_file:
+      - ./services/notifications/.env
+    depends_on:
+      - notifications_redis
+    networks:
+      - services_network
+    volumes:
+      - ./services/notifications/app:/app/
+
+  notifications_consumer:
+    build:
+      context: ./services/notifications
+      dockerfile: Dockerfile
+    env_file:
+      - ./services/notifications/.env
+    depends_on:
+      - notifications_service
+      - kafka
+    networks:
+      - services_network
+    volumes:
+      - ./services/notifications/app:/app/
+    command: ["python", "-m", "consumer"]
+    deploy:
+      replicas: 3
+    restart: on-failure
+
   # Gateway
   gateway:
     build:
@@ -213,6 +259,7 @@ volumes:
   postgres_products_data:
   redis_products_data:
   mongo_orders_data:
+  redis_notifications_data:
   kafka_kraft:
 
 

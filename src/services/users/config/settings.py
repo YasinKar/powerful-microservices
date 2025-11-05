@@ -193,6 +193,8 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
 
+KAFKA_SERVER = os.environ.get("KAFKA_SERVER")
+
 # LOGGING = {
 #     'version': 1,
 #     'disable_existing_loggers': False,
