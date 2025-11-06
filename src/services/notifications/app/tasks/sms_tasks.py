@@ -24,5 +24,5 @@ def send_otp_sms_task(to: str, otp_code: str):
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 3, "countdown": 10},
 )
-def send_welcome_sms_task(to: str, username: str):
-    pass
+def send_welcome_sms_task(to: str):
+    print(f"welcome {to}")

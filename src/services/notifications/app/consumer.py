@@ -7,7 +7,7 @@ from confluent_kafka import Consumer
 
 from config import settings
 from tasks.email_tasks import send_welcome_email_task, send_otp_email_task
-from tasks.sms_tasks import send_otp_sms_task
+from tasks.sms_tasks import send_otp_sms_task, send_welcome_sms_task
 
 
 logger = logging.getLogger(__name__)
@@ -58,16 +58,21 @@ def handle_event(event: dict):
                 )
 
         elif event_type == "UserVerified":
+            user_type = payload.get("user_type")
             username = payload.get("username")
 
-            if username:
+            if user_type == "phone":
+              send_welcome_sms_task.apply_async(
+                    args=[username],
+                    routing_key="notifications.default",
+                    priority=5,
+                )
+            elif user_type == "email":
                 send_welcome_email_task.apply_async(
                     args=[username],
                     routing_key="notifications.default",
                     priority=5,
                 )
-            else:
-                logger.warning("Missing email in UserVerified event")
 
         else:
             logger.warning(f"Unknown event type: {event_type}")

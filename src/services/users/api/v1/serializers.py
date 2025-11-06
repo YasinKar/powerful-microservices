@@ -190,6 +190,21 @@ class VerifyUsernameSerializer(serializers.Serializer):
         keycloak = UserKeyCloak()
         keycloak.username = validated_data["username"]
         keycloak.email_verified()
+
+        phone, email = valid_username(validated_data['username'])
+
+        event = {
+            "event_type": "UserVerified",
+            "data": {
+                "username": validated_data['username'],
+                "user_type": "phone" if phone else "email",
+            },
+        }
+        publish_event(
+            topic="users",
+            value=event
+        )
+
         return validated_data['username']
     
 
