@@ -32,9 +32,6 @@ async def add_item_to_cart(
         product_id=product_id,
         quantity=quantity,
     )
-
-    if cart["error"]:
-        raise HTTPException(status_code=400, detail=cart["error"])
     
     return cart
 
@@ -42,10 +39,10 @@ async def add_item_to_cart(
 @router.post("/remove-item", response_model=Cart)
 async def remove_item_from_cart(
     current_user: CurrentUserDep,
-    item_id: str = Body(...)
+    item_id: str = Body(..., embed=True)
 ):
     """Remove an item from the user's cart"""
-    cart = await CartService.delete_cart_item(current_user.id, item_id)
+    cart = await CartService.delete_cart_item(current_user.sub, item_id)
     if not cart:
         raise HTTPException(status_code=404, detail="Cart not found or empty")
     return cart
@@ -54,7 +51,7 @@ async def remove_item_from_cart(
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
 async def clear_cart(current_user: CurrentUserDep):
     """Delete entire cart"""
-    success = await CartService.delete_cart(current_user.id)
+    success = await CartService.delete_cart(current_user.sub)
     if not success:
         raise HTTPException(status_code=404, detail="Cart not found")
     return {"message": "Cart deleted successfully"}

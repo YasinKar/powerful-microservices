@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class UserAddress(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
+    user_id: Optional[str] = None
     street: str
     city: str
     state: str

@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
 
+from fastapi import HTTPException
+
 from models.cart import Cart, CartItem
 from core.mongodb import db
 from services.product_service import ProductService
@@ -19,7 +21,7 @@ class CartService:
             return Cart.from_mongo(existing)
 
         cart = Cart(user_id=user_id, items=[], total_price=0)
-        res = CartService.collection.insert_one(cart.to_dict())
+        res = CartService.collection.insert_one(cart.model_dump())
         cart.id = str(res.inserted_id)
         return cart
 
@@ -40,27 +42,20 @@ class CartService:
             cart = Cart.from_mongo(cart_data)
 
         product = ProductService.get_product(product_id)
-        print(product)
         if not product:
-            return {
-                "error" : "Product not found"
-            }
+            raise HTTPException(status_code=404, detail="Product not found")
 
         existing_item = next((i for i in cart.items if i.product_id == product_id), None)
 
         if existing_item:
             if product["stock"] < quantity + existing_item.quantity:
-                return {
-                    "error" : f"Only {product["stock"]} items available in stock."
-                }
+                raise HTTPException(status_code=400, detail="Insufficient stock.")
             
             existing_item.quantity += quantity
         else:
             if product["stock"] < quantity:
-                return {
-                    "error" : f"Only {product["stock"]} items available in stock."
-                }
-
+                raise HTTPException(status_code=400, detail="Insufficient stock.")
+            
             cart.items.append(CartItem(product_id=product_id, quantity=quantity))
 
         cart.calculate_total()
@@ -92,7 +87,7 @@ class CartService:
 
         CartService.collection.update_one(
             {"user_id": user_id},
-            {"$set": cart.to_dict()}
+            {"$set": cart.model_dump()}
         )
 
         return cart

@@ -1,9 +1,10 @@
 import uuid
-from typing import List, Optional
+from typing import List
 
 from pydantic import BaseModel, field_validator, Field
 
 from services.product_service import ProductService
+
 
 class CartItem(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -31,10 +32,6 @@ class Cart(BaseModel):
         if not isinstance(v, list):
             raise ValueError("Items must be a list")
         return v
-
-    def to_dict(self):
-        """Convert to MongoDB-friendly dict"""
-        return self.model_dump()
 
     @classmethod
     def from_mongo(cls, data):

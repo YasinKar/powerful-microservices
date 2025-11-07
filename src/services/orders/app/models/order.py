@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 import uuid
 
 from pydantic import BaseModel, Field
@@ -17,13 +17,11 @@ class Order(BaseModel):
     status: str = "pending"  # pending, paid, shipped, delivered, canceled
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    paid_at: Optional[datetime] = None
 
     def calculate_total(self):
-        self.total_price = sum((item.price or 0) * item.quantity for item in self.items)
+        self.total_price = sum(item.subtotal() for item in self.items)
         return self.total_price
-
-    def to_dict(self):
-        return self.model_dump()
 
     @classmethod
     def from_mongo(cls, data):
