@@ -48,7 +48,7 @@ async def create_order(current_user: CurrentUserDep, address_id: str = Body(...,
 
 @router.post("/cancel/{order_id}", status_code=status.HTTP_200_OK)
 async def cancel_order(order_id: uuid.UUID, current_user: CurrentUserDep):
-    success = OrderService.cancel_order(current_user.sub, str(order_id))
+    success = await OrderService.cancel_order(current_user.sub, str(order_id))
     if not success:
         raise HTTPException(status_code=400, detail="Cannot cancel this order")
     return {"detail": "Order canceled successfully"}

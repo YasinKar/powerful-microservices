@@ -19,6 +19,10 @@ from models.product import (
 from events.kafka_producer import publish_event
 
 
+logging.basicConfig(
+level=logging.INFO,
+format="%(asctime)s [%(levelname)s] %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -253,3 +257,34 @@ class ProductService:
             current_page=current_page,
             page_size=page_size
         )
+    
+    @staticmethod
+    def update_stock(db: SessionDep, product_id: uuid.UUID, quantity_change: int) -> Optional[Product]:
+        db_product = db.get(Product, product_id)
+        if not db_product:
+            logger.warning(f"Product not found: {product_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+        new_stock = db_product.stock + quantity_change
+        if new_stock < 0:
+            logger.warning(f"Insufficient stock for product {product_id}. Current: {db_product.stock}, Change: {quantity_change}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock")
+
+        db_product.stock = new_stock
+        db.add(db_product)
+        db.commit()
+        db.refresh(db_product)
+
+        logger.info(f"Stock updated for product {product_id}: {db_product.stock}")
+
+       # Publish ProductUpdated event in `products` topic -> Consumer: OrdersService
+        event = {
+            "event_type": "ProductUpdated",
+            "product": db_product.model_dump(),
+        }
+        publish_event(
+            topic="products",
+            value=event
+        )
+
+        return db_product

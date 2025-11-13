@@ -62,7 +62,7 @@ class CartService:
 
         CartService.collection.update_one(
             {"user_id": user_id},
-            {"$set": cart.to_dict()},
+            {"$set": cart.model_dump()},
             upsert=True
         )
 

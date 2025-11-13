@@ -7,7 +7,9 @@ from fastapi import HTTPException
 from models.order import Order
 from models.cart import Cart
 from services.address_service import AddressService
+from services.cart_service import CartService
 from core.mongodb import db
+from events.kafka_producer import publish_event
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,8 @@ class OrderService:
 
         logger.info(f"Order created for user {user_id}, id: {result.inserted_id}")
 
+        await CartService.delete_cart(user_id)
+
         order.id = str(result.inserted_id)
         return order
 
@@ -69,15 +73,26 @@ class OrderService:
     @staticmethod
     async def cancel_order(user_id: str, order_id: str) -> bool:
         """Cancel an order if it’s still pending"""
-        order = await OrderService.collection.find_one({"user_id": user_id, "id": order_id})
+        order = OrderService.collection.find_one({"user_id": user_id, "id": order_id})
         if not order:
             return False
         if order.get("status") not in ["pending", "paid"]:
             return False  # Can't cancel shipped or delivered orders
 
-        result = await OrderService.collection.update_one(
+        # Publish OrderCancelled event in `orders` topic -> Consumer: ProductService
+        event = {
+            "event_type": "OrderCancelled",
+            "order_items": order.get("items"),
+        }
+
+        publish_event(
+            topic="orders",
+            value=event
+        )
+
+        result = OrderService.collection.update_one(
             {"id": order_id, "user_id": user_id},
-            {"$set": {"status": "canceled", "updated_at": Order.now()}}
+            {"$set": {"status": "canceled", "updated_at": datetime.now(timezone.utc)}}
         )
         return result.modified_count > 0
     
@@ -105,4 +120,16 @@ class OrderService:
             return None
 
         updated = OrderService.collection.find_one({"id": order_id, "user_id": user_id})
-        return updated
+
+        # Publish OrderPlaced event in `orders` topic -> Consumer: ProductService
+        event = {
+            "event_type": "OrderPlaced",
+            "order_items": updated.get("items"),
+        }
+
+        publish_event(
+            topic="orders",
+            value=event
+        )
+
+        return Order.from_mongo(updated)

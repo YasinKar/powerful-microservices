@@ -86,6 +86,22 @@ services:
     networks:
       - services_network
 
+  products_tracker:
+    build:
+      context: ./services/products
+      dockerfile: Dockerfile
+    container_name: products_tracker
+    command: python -m events.products_tracker
+    env_file:
+      - ./services/products/.env
+    depends_on:
+      - products_service
+      - kafka
+    networks:
+      - services_network
+    volumes:
+      - ./services/products/app:/app/
+
   # Orders
   orders_service:
     build:
@@ -127,6 +143,7 @@ services:
       - ./services/orders/.env
     depends_on:
       - orders_service
+      - kafka
     networks:
       - services_network
     volumes:
