@@ -1,5 +1,7 @@
+version: "3.9"
+
 services:
-  # Users
+  # -------------------- Users --------------------
   users_redis:
     image: redis:7.0.11-alpine
     container_name: redis_users
@@ -7,84 +9,106 @@ services:
       - services_network
     volumes:
       - redis_users_data:/data
-    ports:
-      - "6379"
-    restart: on-failure
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   users_db:
     image: postgres
     container_name: db_users
-    restart: on-failure
+    restart: always
     env_file:
       - ./services/users/.env
     volumes:
       - postgres_users_data:/var/lib/postgresql/data
-    ports:
-      - "5432"
     networks:
       - services_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   users_service:
     build:
       context: ./services/users
       dockerfile: Dockerfile
     container_name: users_service
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000" 
+    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
     volumes:
-      - ./services/users:/app/
-    ports:
-      - "8000:8000" # dont expose port with production mode
+      - ./services/users:/app
     env_file:
       - ./services/users/.env
     depends_on:
-      - users_redis
-      - users_db
+      users_redis:
+        condition: service_healthy
+      users_db:
+        condition: service_healthy
     networks:
       - services_network
       - keycloak_keycloak_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin"]
+      interval: 10s
+      retries: 5
 
-  # Products
+  # -------------------- Products --------------------
   products_redis:
     image: redis:7.0.11-alpine
     container_name: redis_products
     volumes:
       - redis_products_data:/data
-    ports:
-      - "6380"
-    restart: on-failure
+    restart: always
     networks:
       - services_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  products_db:
+    image: postgres
+    container_name: db_products
+    restart: always
+    env_file:
+      - ./services/products/.env
+    volumes:
+      - postgres_products_data:/var/lib/postgresql/data
+    networks:
+      - services_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   products_service:
     build:
       context: ./services/products
       dockerfile: Dockerfile
     container_name: products_service
-    ports:
-      - "8001:8001" # dont expose port with production mode
+    volumes:
+      - ./services/products/app:/app
     env_file:
       - ./services/products/.env
     depends_on:
-      - products_redis
-      - products_db
+      products_redis:
+        condition: service_healthy
+      products_db:
+        condition: service_healthy
     networks:
       - services_network
       - keycloak_keycloak_network
-    volumes:
-      - ./services/products/app:/app/
-
-  products_db:
-    image: postgres
-    container_name: db_products
-    restart: on-failure
-    env_file:
-      - ./services/products/.env
-    volumes:
-      - postgres_products_data:/var/lib/postgresql/data
-    ports:
-      - "5434"
-    networks:
-      - services_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/docs"]
+      interval: 10s
+      retries: 5
 
   products_tracker:
     build:
@@ -92,46 +116,55 @@ services:
       dockerfile: Dockerfile
     container_name: products_tracker
     command: python -m events.products_tracker
+    volumes:
+      - ./services/products/app:/app
     env_file:
       - ./services/products/.env
     depends_on:
-      - products_service
-      - kafka
+      products_service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - services_network
-    volumes:
-      - ./services/products/app:/app/
+    restart: always
 
-  # Orders
+  # -------------------- Orders --------------------
+  orders_mongodb:
+    image: mongo
+    container_name: orders_mongodb
+    restart: always
+    env_file:
+      - ./services/orders/.env
+    volumes:
+      - mongo_orders_data:/data/db
+    networks:
+      - services_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+
   orders_service:
     build:
       context: ./services/orders
       dockerfile: Dockerfile
     container_name: orders_service
-    ports:
-      - "8002:8002" # dont expose port with production mode
+    volumes:
+      - ./services/orders/app:/app
     env_file:
       - ./services/orders/.env
     depends_on:
-      - orders_mongodb
+      orders_mongodb:
+        condition: service_healthy
     networks:
       - services_network
       - keycloak_keycloak_network
-    volumes:
-      - ./services/orders/app:/app/
-
-  orders_mongodb:
-    image: mongo
-    container_name: orders_mongodb
-    restart: on-failure
-    env_file:
-      - ./services/orders/.env
-    volumes:
-      - mongo_orders_data:/data/db
-    ports:
-      - "27017"
-    networks:
-      - services_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/docs"]
+      interval: 10s
+      retries: 5
 
   orders_tracker:
     build:
@@ -139,84 +172,99 @@ services:
       dockerfile: Dockerfile
     container_name: orders_tracker
     command: python -m events.orders_tracker
+    volumes:
+      - ./services/orders/app:/app
     env_file:
       - ./services/orders/.env
     depends_on:
-      - orders_service
-      - kafka
+      orders_service:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - services_network
-    volumes:
-      - ./services/orders/app:/app/
+    restart: always
 
-  # Notifications
+  # -------------------- Notifications --------------------
   notifications_redis:
     image: redis:7.0.11-alpine
     container_name: redis_notifications
     volumes:
       - redis_notifications_data:/data
-    ports:
-      - "6381"
-    restart: on-failure
     networks:
       - services_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
 
   notifications_service:
     build:
       context: ./services/notifications
       dockerfile: Dockerfile
     container_name: notifications_service
-    ports:
-      - "8004:8004" # dont expose port with production mode
+    volumes:
+      - ./services/notifications/app:/app
     env_file:
       - ./services/notifications/.env
     depends_on:
-      - notifications_redis
+      notifications_redis:
+        condition: service_healthy
     networks:
       - services_network
-    volumes:
-      - ./services/notifications/app:/app/
+    restart: always
 
   notifications_consumer:
     build:
       context: ./services/notifications
       dockerfile: Dockerfile
+    command: python -m consumer
+    volumes:
+      - ./services/notifications/app:/app
     env_file:
       - ./services/notifications/.env
     depends_on:
-      - notifications_service
-      - kafka
+      notifications_service:
+        condition: service_started
+      kafka:
+        condition: service_healthy
     networks:
       - services_network
-    volumes:
-      - ./services/notifications/app:/app/
-    command: ["python", "-m", "consumer"]
+    restart: always
     deploy:
       replicas: 3
-    restart: on-failure
 
-  # Gateway
+  # -------------------- Gateway --------------------
   gateway:
     build:
       context: ./gateway
       dockerfile: Dockerfile
     container_name: gateway
-    ports:
-      - "8003:8003"
+    volumes:
+      - ./gateway:/app
     env_file:
-      - ./gateway/.env  # Optional: for any env vars
+      - ./gateway/.env
     depends_on:
-      - users_service
-      - products_service
-      - orders_service
-      - users_redis  # For rate limiting
+      users_service:
+        condition: service_healthy
+      products_service:
+        condition: service_healthy
+      orders_service:
+        condition: service_healthy
+      users_redis:
+        condition: service_healthy
     networks:
       - services_network
-    volumes:
-      - ./gateway:/app/
-    restart: on-failure
-  
-  # Kafka(event broker)
+    ports:
+      - "8003:8003"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health/"]
+      interval: 10s
+      retries: 5
+
+  # -------------------- Kafka --------------------
   kafka:
     image: confluentinc/cp-kafka:7.8.3
     container_name: kafka
@@ -226,24 +274,24 @@ services:
       - services_network
     environment:
       KAFKA_KRAFT_MODE: 'true'
-
       CLUSTER_ID: '1L6g7nGhU-eAKfL--X25wo'
       KAFKA_NODE_ID: 1
-
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-
-      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka_kraft:/var/lib/kafka/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092"]
+      interval: 10s
+      retries: 5
 
-  # Extra
+  # -------------------- Admin / Tools --------------------
   pgadmin:
     container_name: pgadmin
     image: dpage/pgadmin4
@@ -254,13 +302,14 @@ services:
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@example.com
       - PGADMIN_DEFAULT_PASSWORD=admin
+    restart: always
 
   mongo-express:
     image: mongo-express
     container_name: mongo_express
     restart: always
     ports:
-      - 8081:8081
+      - "8081:8081"
     networks:
       - services_network
     environment:
@@ -268,7 +317,6 @@ services:
       ME_CONFIG_BASICAUTH_ENABLED: true
       ME_CONFIG_BASICAUTH_USERNAME: admin
       ME_CONFIG_BASICAUTH_PASSWORD: admin
-
 
 volumes:
   postgres_users_data:
@@ -278,7 +326,6 @@ volumes:
   mongo_orders_data:
   redis_notifications_data:
   kafka_kraft:
-
 
 networks:
   services_network:

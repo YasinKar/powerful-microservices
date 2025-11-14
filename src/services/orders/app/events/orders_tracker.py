@@ -7,9 +7,11 @@ from core.config import settings
 from services.product_service import ProductService
 
 
-def main():
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
+
+def main():
     consumer_conf = {
         "bootstrap.servers": settings.KAFKA_SERVER,
         "group.id": "order-service",

@@ -9,11 +9,8 @@ from core.config import settings
 from services.product_service import ProductService
 
 
-logging.basicConfig(
-level=logging.INFO,
-format="%(asctime)s [%(levelname)s] %(message)s",
-)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def main():

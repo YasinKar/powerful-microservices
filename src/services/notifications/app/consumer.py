@@ -11,6 +11,7 @@ from tasks.sms_tasks import send_otp_sms_task, send_welcome_sms_task
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def create_consumer() -> Consumer:
