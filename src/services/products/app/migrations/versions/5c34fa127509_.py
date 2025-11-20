@@ -1,8 +1,8 @@
-"""init
+"""empty message
 
-Revision ID: aa56dcd7c21f
+Revision ID: 5c34fa127509
 Revises: 
-Create Date: 2025-11-04 18:44:39.936398
+Create Date: 2025-11-20 14:39:00.957376
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = 'aa56dcd7c21f'
+revision: str = '5c34fa127509'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -35,6 +35,19 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_category_name'), 'category', ['name'], unique=True)
+    op.create_table('outbox',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('topic', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('value', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('status', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('retry_count', sa.Integer(), nullable=False),
+    sa.Column('last_attempt_at', sa.DateTime(), nullable=True),
+    sa.Column('sent_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_outbox_topic'), 'outbox', ['topic'], unique=False)
+    op.create_index(op.f('ix_outbox_value'), 'outbox', ['value'], unique=False)
     op.create_table('product',
     sa.Column('id', sa.Uuid(), nullable=False),
     sa.Column('name', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -67,6 +80,9 @@ def downgrade() -> None:
     op.drop_table('productimage')
     op.drop_index(op.f('ix_product_name'), table_name='product')
     op.drop_table('product')
+    op.drop_index(op.f('ix_outbox_value'), table_name='outbox')
+    op.drop_index(op.f('ix_outbox_topic'), table_name='outbox')
+    op.drop_table('outbox')
     op.drop_index(op.f('ix_category_name'), table_name='category')
     op.drop_table('category')
     op.drop_index(op.f('ix_brand_name'), table_name='brand')

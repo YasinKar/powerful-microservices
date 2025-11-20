@@ -2,9 +2,10 @@ from typing import Optional
 import uuid
 import logging
 import math
+import json
 
 from fastapi import HTTPException, status
-from sqlmodel import select, func
+from sqlmodel import select, func, delete
 from sqlalchemy.orm import selectinload
 
 from core.authentication import CurrentUserDep
@@ -16,6 +17,7 @@ from models.product import (
     Brand, ProductImage,
     PaginatedProducts
 )
+from models.outbox import Outbox
 from events.kafka_producer import publish_event
 
 
@@ -43,28 +45,36 @@ class ProductService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
 
         db_product = Product.model_validate(product_data)
-        db.add(db_product)
-        db.commit()
-        db.refresh(db_product)
 
-        # Add images
-        for image_url in product_data.images:
-            db_image = ProductImage(product_id=db_product.id, image_url=image_url)
-            db.add(db_image)
-        db.commit()
-
-        logger.info(f"Product created: {db_product.name}")
-        
-        # Publish ProductCreated event in `products` topic -> Consumer: OrdersService
+        # Prepare event (use db_product before commit, as ID will be generated on add)
         event = {
             "event_type": "ProductCreated",
             "product": db_product.model_dump(),
         }
-        publish_event(
+        outbox_entry = Outbox(
             topic="products",
-            value=event
+            value=json.dumps(event, default=str),
+            retry_count=0
         )
 
+        # Atomic: Add product, images, and outbox
+        try:
+            db.add(db_product)
+            db.add(outbox_entry)
+            db.commit()
+            db.refresh(db_product)
+
+            # Add images after product ID is available
+            for image_url in product_data.images:
+                db_image = ProductImage(product_id=db_product.id, image_url=image_url)
+                db.add(db_image)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Transaction failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to add product")
+
+        logger.info(f"Product created: {db_product.name}")
         return db_product
 
     @staticmethod
@@ -112,27 +122,36 @@ class ProductService:
             if key != "images":
                 setattr(db_product, key, value)
 
-        if product_data.images is not None:
-            db.exec(select(ProductImage).where(ProductImage.product_id == product_id)).delete()
-            for image_url in product_data.images:
-                db_image = ProductImage(product_id=product_id, image_url=image_url)
-                db.add(db_image)
-
-        db.add(db_product)
-        db.commit()
-        db.refresh(db_product)
-        logger.info(f"Product updated: {db_product.name}")
-
-        # Publish ProductUpdated event in `products` topic -> Consumer: OrdersService
         event = {
             "event_type": "ProductUpdated",
             "product": db_product.model_dump(),
         }
-        publish_event(
+        outbox_entry = Outbox(
             topic="products",
-            value=event
+            value=json.dumps(event, default=str),
+            retry_count=0
         )
-        
+
+        # Atomic: Update product, handle images, add outbox
+        try:
+            if product_data.images is not None:
+                # Delete old images
+                db.exec(delete(ProductImage).where(ProductImage.product_id == product_id))
+                # Add new images
+                for image_url in product_data.images:
+                    db_image = ProductImage(product_id=product_id, image_url=image_url)
+                    db.add(db_image)
+
+            db.add(db_product)
+            db.add(outbox_entry)
+            db.commit()
+            db.refresh(db_product)
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Transaction failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to update product")
+
+        logger.info(f"Product updated: {db_product.name}")
         return db_product
 
     @staticmethod
@@ -146,19 +165,27 @@ class ProductService:
             logger.warning(f"Product not found: {product_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
-        db.delete(db_product)
-        db.commit()
-        logger.info(f"Product deleted: {product_id}")
-
-        # Publish ProductDeleted event in `products` topic -> Consumer: OrdersService
         event = {
             "event_type": "ProductDeleted",
             "product": db_product.model_dump(),
         }
-        publish_event(
+        outbox_entry = Outbox(
             topic="products",
-            value=event
+            value=json.dumps(event, default=str),
+            retry_count=0
         )
+
+        # Atomic
+        try:
+            db.add(outbox_entry)
+            db.delete(db_product)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Transaction failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to delete product")
+
+        logger.info(f"Product deleted: {product_id}")
 
     @staticmethod
     async def delete_product_image(db: SessionDep, image_id: uuid.UUID, current_user: CurrentUserDep) -> None:
@@ -269,23 +296,29 @@ class ProductService:
         if new_stock < 0:
             logger.warning(f"Insufficient stock for product {product_id}. Current: {db_product.stock}, Change: {quantity_change}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock")
+        
 
-        db_product.stock = new_stock
-        db.add(db_product)
-        db.commit()
-        db.refresh(db_product)
-
-        logger.info(f"Stock updated for product {product_id}: {db_product.stock}")
-
-       # Publish ProductUpdated event in `products` topic -> Consumer: OrdersService
         event = {
             "correlation_id": str(product_id),
             "event_type": "ProductUpdated",
             "product": db_product.model_dump(),
         }
-        publish_event(
+        outbox_entry = Outbox(
             topic="products",
-            value=event
+            value=json.dumps(event, default=str)
         )
 
+        # Atomic: Use SQLAlchemy transaction
+        try:
+            db_product.stock = new_stock
+            db.add(db_product)
+            db.add(outbox_entry)
+            db.commit()
+            db.refresh(db_product)
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Transaction failed: {e}")
+            raise
+
+        logger.info(f"Stock updated for product {product_id}: {db_product.stock}")
         return db_product
