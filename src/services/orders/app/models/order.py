@@ -14,7 +14,7 @@ class Order(BaseModel):
     items: List[CartItem]
     shipping_address: UserAddress
     total_price: float = 0.0
-    status: str = "pending"  # pending, paid, shipped, delivered, canceled
+    status: str = "pending"  # pending, paid, shipped, delivered, canceled, failed(if the order-placement proccess fail)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     paid_at: Optional[datetime] = None

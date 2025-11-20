@@ -279,6 +279,7 @@ class ProductService:
 
        # Publish ProductUpdated event in `products` topic -> Consumer: OrdersService
         event = {
+            "correlation_id": str(product_id),
             "event_type": "ProductUpdated",
             "product": db_product.model_dump(),
         }

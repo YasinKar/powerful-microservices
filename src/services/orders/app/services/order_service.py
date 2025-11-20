@@ -1,6 +1,7 @@
 import logging
 from typing import Optional, List
 from datetime import datetime, timezone
+import uuid
 
 from fastapi import HTTPException
 
@@ -9,7 +10,6 @@ from models.cart import Cart
 from services.address_service import AddressService
 from services.cart_service import CartService
 from core.mongodb import db
-from events.kafka_producer import publish_event
 
 
 logger = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class OrderService:
     collection = db["orders"]
+    outbox_collection = db["outbox"]
 
     @staticmethod
     async def create_order(user_id: str, user_cart: Cart, address_id: str) -> Order:
@@ -78,23 +79,49 @@ class OrderService:
             return False
         if order.get("status") not in ["pending", "paid"]:
             return False  # Can't cancel shipped or delivered orders
-
-        # Publish OrderCancelled event in `orders` topic -> Consumer: ProductService
+        
         event = {
+            "correlation_id": order_id,
             "event_type": "OrderCancelled",
             "order_items": order.get("items"),
         }
+        outbox_entry = {
+            "id": str(uuid.uuid4()),  # outbox ID
+            "topic": "orders",
+            "value": event,
+            "created_at": datetime.now(timezone.utc),
+            "status": "pending"
+        }
 
-        publish_event(
-            topic="orders",
-            value=event
-        )
+        # Atomic transaction: Update order + insert outbox
+        with OrderService.collection.client.start_session() as session:
+            def callback(session):
+                OrderService.collection.update_one(
+                    {"id": order_id, "user_id": user_id},
+                    {"$set": {"status": "canceled", "updated_at": datetime.now(timezone.utc)}},
+                    session=session
+                )
+                OrderService.outbox_collection.insert_one(outbox_entry, session=session)
+            try:
+                session.with_transaction(callback)
+                return True
+            except PyMongoError as e:
+                logger.error(f"Transaction failed: {e}")
+                return False
 
-        result = OrderService.collection.update_one(
-            {"id": order_id, "user_id": user_id},
-            {"$set": {"status": "canceled", "updated_at": datetime.now(timezone.utc)}}
-        )
-        return result.modified_count > 0
+        # # Publish OrderCancelled event in `orders` topic -> Consumer: ProductService
+        # event = {
+        #     "correlation_id": order_id,
+        #     "event_type": "OrderCancelled",
+        #     "order_items": order.get("items"),
+        # }
+
+        # publish_event(
+        #     topic="orders",
+        #     value=event
+        # )
+
+        # return True
     
     @staticmethod
     async def mark_order_paid(user_id: str, order_id: str) -> Optional[Order]:
@@ -103,7 +130,7 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Order not found")
 
         current_status = order.get("status")
-        if current_status not in ["pending", "paid"]:
+        if current_status != "pending":
             raise HTTPException(status_code=400, detail=f"Order cannot be marked paid (status={current_status})")
 
         now = datetime.now(timezone.utc)
@@ -115,21 +142,35 @@ class OrderService:
             }
         }
 
-        result = OrderService.collection.update_one({"id": order_id, "user_id": user_id}, update)
-        if result.modified_count == 0:
-            return None
-
-        updated = OrderService.collection.find_one({"id": order_id, "user_id": user_id})
-
-        # Publish OrderPlaced event in `orders` topic -> Consumer: ProductService
         event = {
+            "correlation_id": order_id,
             "event_type": "OrderPlaced",
-            "order_items": updated.get("items"),
+            "order_items": order.get("items"),  
+        }
+        outbox_entry = {
+            "id": str(uuid.uuid4()),
+            "topic": "orders",
+            "value": event,
+            "created_at": now,
+            "status": "pending"
         }
 
-        publish_event(
-            topic="orders",
-            value=event
-        )
+        # Atomic transaction
+        with OrderService.collection.client.start_session() as session:
+            def callback(session):
+                result = OrderService.collection.update_one(
+                    {"id": order_id, "user_id": user_id},
+                    update,
+                    session=session
+                )
+                if result.modified_count == 0:
+                    raise ValueError("Update failed")
+                OrderService.outbox_collection.insert_one(outbox_entry, session=session)
+            try:
+                session.with_transaction(callback)
+            except (PyMongoError, ValueError) as e:
+                logger.error(f"Transaction failed: {e}")
+                raise HTTPException(status_code=500, detail="Failed to mark order paid")
 
-        return Order.from_mongo(updated)
+        updated = OrderService.collection.find_one({"id": order_id, "user_id": user_id})
+        return Order.from_mongo(updated)    
