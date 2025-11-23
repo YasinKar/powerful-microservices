@@ -18,7 +18,6 @@ from models.product import (
     PaginatedProducts
 )
 from models.outbox import Outbox
-from events.kafka_producer import publish_event
 
 
 logging.basicConfig(

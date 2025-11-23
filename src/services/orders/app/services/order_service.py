@@ -19,6 +19,8 @@ class OrderService:
     collection = db["orders"]
     outbox_collection = db["outbox"]
 
+    client = collection.database.client
+
     @staticmethod
     async def create_order(user_id: str, user_cart: Cart, address_id: str) -> Order:
         """Create a new order from the user's current cart"""
@@ -94,7 +96,7 @@ class OrderService:
         }
 
         # Atomic transaction: Update order + insert outbox
-        with OrderService.collection.client.start_session() as session:
+        with OrderService.client.start_session() as session:
             def callback(session):
                 OrderService.collection.update_one(
                     {"id": order_id, "user_id": user_id},
@@ -105,23 +107,9 @@ class OrderService:
             try:
                 session.with_transaction(callback)
                 return True
-            except PyMongoError as e:
+            except (ValueError) as e:
                 logger.error(f"Transaction failed: {e}")
                 return False
-
-        # # Publish OrderCancelled event in `orders` topic -> Consumer: ProductService
-        # event = {
-        #     "correlation_id": order_id,
-        #     "event_type": "OrderCancelled",
-        #     "order_items": order.get("items"),
-        # }
-
-        # publish_event(
-        #     topic="orders",
-        #     value=event
-        # )
-
-        # return True
     
     @staticmethod
     async def mark_order_paid(user_id: str, order_id: str) -> Optional[Order]:
@@ -156,7 +144,7 @@ class OrderService:
         }
 
         # Atomic transaction
-        with OrderService.collection.client.start_session() as session:
+        with OrderService.client.start_session() as session:
             def callback(session):
                 result = OrderService.collection.update_one(
                     {"id": order_id, "user_id": user_id},
@@ -168,7 +156,7 @@ class OrderService:
                 OrderService.outbox_collection.insert_one(outbox_entry, session=session)
             try:
                 session.with_transaction(callback)
-            except (PyMongoError, ValueError) as e:
+            except (ValueError) as e:
                 logger.error(f"Transaction failed: {e}")
                 raise HTTPException(status_code=500, detail="Failed to mark order paid")
 

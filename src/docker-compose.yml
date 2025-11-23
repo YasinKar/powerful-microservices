@@ -133,10 +133,12 @@ services:
   orders_mongodb:
     image: mongo
     container_name: orders_mongodb
+    command: ["--replSet", "rs0", "--auth", "--keyFile", "/etc/mongo-keyfile/keyfile"]
     restart: always
     env_file:
       - ./services/orders/.env
     volumes:
+      - ./services/orders/mongo_keyfile:/etc/mongo-keyfile
       - mongo_orders_data:/data/db
     networks:
       - services_network
