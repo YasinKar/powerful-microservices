@@ -1,3 +1,6 @@
+import logging.config
+import yaml
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,6 +11,15 @@ from slowapi.middleware import SlowAPIMiddleware
 import httpx
 
 from settings import settings
+
+
+with open('logging.yaml', "r") as f:
+    LOGGING = yaml.safe_load(f)
+LOGGING["loggers"][""]["handlers"] = ["console_json", "file_json"]
+
+logging.config.dictConfig(LOGGING)
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(title="API Gateway")

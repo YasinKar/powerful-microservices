@@ -1,5 +1,6 @@
 import json
-import logging
+import logging.config   
+import yaml
 
 from confluent_kafka import Consumer
 
@@ -10,8 +11,17 @@ from events.handlers.product_deleted import handle_product_deleted
 from events.handlers.order_failed import handle_order_failed
 
 
+with open(settings.LOGGING_CONFIG_FILE, "r") as f:
+    LOGGING = yaml.safe_load(f)
+    
+if settings.ENVIRONMENT == "local":
+    LOGGING["loggers"][""]["handlers"] = ["console_dev"]
+else:
+    LOGGING["loggers"][""]["handlers"] = ["console_json", "file_json"]
+
+logging.config.dictConfig(LOGGING)
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 EVENT_HANDLERS = {

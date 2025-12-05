@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import yaml
 
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -9,6 +10,16 @@ from core.config import settings
 from routes.main import api_router
 from events.outbox_events import publish_outbox_events
 
+
+with open(settings.LOGGING_CONFIG_FILE, "r") as f:
+    LOGGING = yaml.safe_load(f)
+
+if settings.ENVIRONMENT == "local":
+    LOGGING["loggers"][""]["handlers"] = ["console_dev"]
+else:
+    LOGGING["loggers"][""]["handlers"] = ["console_json", "file_json"]
+
+logging.config.dictConfig(LOGGING)
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,6 @@ from events.kafka_producer import publish_event
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 outbox_collection = db["outbox"]

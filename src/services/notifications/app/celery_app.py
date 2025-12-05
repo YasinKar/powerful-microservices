@@ -1,7 +1,23 @@
+import logging.config
+import yaml
+from pathlib import Path
+
 from celery import Celery
 from kombu import Exchange, Queue
 
 from config import settings
+
+
+BASE_DIR = Path(__file__).resolve().parent
+
+LOGGING_CONFIG_FILE = BASE_DIR / "logging.yaml"
+
+with open(LOGGING_CONFIG_FILE, "r") as f:
+    LOGGING = yaml.safe_load(f)
+
+logging.config.dictConfig(LOGGING)
+
+logger = logging.getLogger(__name__)
 
 
 celery_app = Celery(

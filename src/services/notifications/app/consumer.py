@@ -2,6 +2,8 @@ import json
 import logging
 import signal
 import sys
+import yaml
+from pathlib import Path
 
 from confluent_kafka import Consumer
 
@@ -10,8 +12,16 @@ from tasks.email_tasks import send_welcome_email_task, send_otp_email_task
 from tasks.sms_tasks import send_otp_sms_task, send_welcome_sms_task
 
 
+BASE_DIR = Path(__file__).resolve().parent
+
+LOGGING_CONFIG_FILE = BASE_DIR / "logging.yaml"
+
+with open(LOGGING_CONFIG_FILE, "r") as f:
+    LOGGING = yaml.safe_load(f)
+
+logging.config.dictConfig(LOGGING)
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def create_consumer() -> Consumer:

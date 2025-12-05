@@ -1,0 +1,36 @@
+version: 1
+disable_existing_loggers: False
+
+formatters:
+  json:
+    (): structlog.stdlib.ProcessorFormatter
+    processor: structlog.processors.JSONRenderer()
+
+  simple:
+    format: "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+
+handlers:
+  console_json:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: json
+    
+  console_dev:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+
+  file_json:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    filename: logs/app.log
+    maxBytes: 10485760
+    backupCount: 5
+    formatter: json
+
+loggers:
+  # Major Logger
+  "":
+    handlers: []
+    level: INFO
+    propagate: False

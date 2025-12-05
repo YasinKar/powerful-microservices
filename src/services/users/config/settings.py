@@ -230,3 +230,20 @@ KAFKA_SERVER = os.environ.get("KAFKA_SERVER")
 #         }
 #     }
 # }
+
+import logging.config
+import yaml
+
+LOGGING_CONFIG_FILE = BASE_DIR / "logging.yaml"
+
+with open(LOGGING_CONFIG_FILE, "r") as f:
+    LOGGING = yaml.safe_load(f)
+
+if DEBUG:
+    # Development mode
+    LOGGING["loggers"][""]["handlers"] = ["console_dev"]
+else:
+    # Production mode
+    LOGGING["loggers"][""]["handlers"] = ["console_json", "file_json"]
+
+logging.config.dictConfig(LOGGING)

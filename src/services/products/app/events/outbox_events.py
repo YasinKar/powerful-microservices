@@ -11,7 +11,6 @@ from models.outbox import Outbox
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 def publish_outbox_events(max_retries: int = 5, backoff_seconds: int = 5):

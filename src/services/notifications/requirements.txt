@@ -15,8 +15,10 @@ pydantic-settings==2.11.0
 pydantic_core==2.41.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
+PyYAML==6.0.3
 redis==5.2.1
 six==1.17.0
+structlog==25.5.0
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2025.2
