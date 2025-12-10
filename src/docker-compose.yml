@@ -14,7 +14,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.users_redis"
     depends_on:
       fluentd:
@@ -25,30 +25,82 @@ services:
       timeout: 5s
       retries: 5
 
-  users_db:
-    image: postgres
-    container_name: db_users
+  users_citus_coordinator:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_coordinator
     restart: always
     env_file:
       - ./services/users/.env
-    volumes:
-      - postgres_users_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
     networks:
       - services_network
       - logging_network
+    volumes:
+      - users_citus_coord_data:/var/lib/postgresql/data
+      - ./services/users/init_db:/docker-entrypoint-initdb.d
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
-        tag: "docker.users_db"
+        fluentd-address: "localhost:24224"
+        tag: "docker.users_citus_coordinator"
     depends_on:
       fluentd:
         condition: service_healthy
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -h localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
+
+  users_citus_worker1:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_worker1
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # POSTGRES_HOST_AUTH_METHOD: trust
+    networks:
+      - services_network
+      - logging_network
+    volumes:
+      - users_citus_worker1_data:/var/lib/postgresql/data
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "docker.users_citus_worker1"
+    depends_on:
+      fluentd:
+        condition: service_healthy
+
+  users_citus_worker2:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_worker2
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      # POSTGRES_HOST_AUTH_METHOD: trust
+    networks:
+      - services_network
+      - logging_network
+    volumes:
+      - users_citus_worker2_data:/var/lib/postgresql/data
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "localhost:24224"
+        tag: "docker.users_citus_worker2"
+    depends_on:
+      fluentd:
+        condition: service_healthy
 
   users_service:
     build:
@@ -63,7 +115,7 @@ services:
     depends_on:
       users_redis:
         condition: service_healthy
-      users_db:
+      users_citus_coordinator:
         condition: service_healthy
       fluentd:
         condition: service_healthy
@@ -74,7 +126,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.users_service"
     restart: always
     healthcheck:
@@ -95,7 +147,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.products_redis"
     depends_on:
       fluentd:
@@ -120,7 +172,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.products_db"
     depends_on:
       fluentd:
@@ -154,7 +206,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.products_service"
     restart: always
     healthcheck:
@@ -185,7 +237,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.products_tracker"
     restart: always
 
@@ -206,7 +258,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.orders_mongodb"
     depends_on:
       fluentd:
@@ -237,7 +289,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.orders_service"
     restart: always
     healthcheck:
@@ -268,7 +320,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.orders_tracker"
     restart: always
 
@@ -285,7 +337,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.notifications_redis"
     depends_on:
       fluentd:
@@ -315,7 +367,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.notifications_service"
     restart: always
 
@@ -341,7 +393,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.notifications_consumer"
     restart: always
     deploy:
@@ -377,7 +429,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health/"]
@@ -410,7 +462,7 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "host.docker.internal:24224"
+        fluentd-address: "localhost:24224"
         tag: "docker.kafka"
     depends_on:
       fluentd:
@@ -460,9 +512,9 @@ services:
       - "24224:24224/udp"
     volumes:
       - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf
-    depends_on:
-        elasticsearch:
-          condition: service_healthy
+    # depends_on:
+    #     elasticsearch:
+    #       condition: service_healthy
     healthcheck:
         test: ["CMD", "nc", "-z", "localhost", "24224"] 
         interval: 10s
@@ -505,13 +557,20 @@ services:
           condition: service_healthy
       
 volumes:
-  postgres_users_data:
+  users_citus_coord_data:
+  users_citus_worker1_data:
+  users_citus_worker2_data:
   redis_users_data:
+
   postgres_products_data:
   redis_products_data:
+
   mongo_orders_data:
+
   redis_notifications_data:
+
   kafka_kraft:
+  
   elastic_data:
 
 networks:

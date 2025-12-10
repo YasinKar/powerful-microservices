@@ -1,10 +1,12 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from .managers import UserManager
-from django.core.validators import RegexValidator
 
 
 class User(AbstractBaseUser, PermissionsMixin):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=250, unique=True,verbose_name='username')
     is_admin = models.BooleanField(default=False, verbose_name="user is admin")
     
