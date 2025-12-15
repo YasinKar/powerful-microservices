@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: users-citus-secret
+type: Opaque
+stringData:
+  POSTGRES_USER: "postgres"
+  POSTGRES_PASSWORD: "postgres"
+  POSTGRES_DB: "postgres"
+  
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: users-citus-initdb
+data:
+  init.sh: |-
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      CREATE EXTENSION IF NOT EXISTS citus;
+      SELECT citus_set_coordinator_host('users-citus-coordinator', 5432);
+      SELECT citus_add_node('users-citus-worker-0.users-citus-worker-headless', 5432);
+      SELECT citus_add_node('users-citus-worker-1.users-citus-worker-headless', 5432);
+    EOSQL
+  
+--- 
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-citus-coordinator
+spec:
+  selector:
+    app: users-citus-coordinator
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: users-citus-coordinator
+spec:
+  serviceName: users-citus-coordinator
+  replicas: 1
+  selector:
+    matchLabels:
+      app: users-citus-coordinator
+  template:
+    metadata:
+      labels:
+        app: users-citus-coordinator
+    spec:
+      containers:
+      - name: citus
+        image: citusdata/citus:12
+        envFrom:
+          - secretRef:
+              name: users-citus-secret
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        - name: initdb
+          mountPath: /docker-entrypoint-initdb.d
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - localhost
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - localhost
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+      volumes:
+      - name: initdb
+        configMap:
+          name: users-citus-initdb
+          defaultMode: 0755  # Make script executable if it's a shell script
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: standard
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi

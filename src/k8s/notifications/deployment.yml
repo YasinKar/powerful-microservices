@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifications-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notifications-service
+  template:
+    metadata:
+      labels:
+        app: notifications-service
+    spec:
+      containers:
+      - name: notifications-service
+        image: notifications-service:latest
+        command:
+        - sh
+        - -c
+        - celery -A celery_app worker -l info
+        envFrom:
+          - secretRef:
+              name: notifications-secret
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifications-consumer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: notifications-consumer
+  template:
+    metadata:
+      labels:
+        app: notifications-consumer
+    spec:
+      containers:
+      - name: notifications-consumer
+        image: notifications-service:latest
+        command:
+        - python
+        - -m
+        - consumer
+        envFrom:
+          - secretRef:
+              name: notifications-secret

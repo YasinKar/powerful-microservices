@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-service
+  template:
+    metadata:
+      labels:
+        app: orders-service
+    spec:
+      containers:
+      - name: orders-service
+        image: orders-service:latest
+        command:
+        - uvicorn
+        - main:app
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8002"
+        - --workers
+        - "1"
+        ports:
+        - containerPort: 8002
+        envFrom:
+          - secretRef:
+              name: orders-secret
+        readinessProbe:
+          httpGet:
+            path: /docs
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 5
+        livenessProbe:
+          httpGet:
+            path: /docs
+            port: 8002
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders-service
+spec:
+  selector:
+    app: orders-service
+  ports:
+  - protocol: TCP
+    port: 8002
+    targetPort: 8002
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orders-tracker
+  template:
+    metadata:
+      labels:
+        app: orders-tracker
+    spec:
+      containers:
+      - name: orders-tracker
+        image: orders-service:latest  # Same image as orders-service
+        command:
+        - python
+        - -m
+        - events.orders_tracker
+        envFrom:
+          - secretRef:
+              name: orders-secret

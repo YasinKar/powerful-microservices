@@ -13,5 +13,3 @@ ENV PATH=/root/.local/bin:$PATH
 EXPOSE 8004
 
 ENV PYTHONPATH=/app
-
-CMD ["celery", "-A", "celery_app", "worker", "-l", "info"]

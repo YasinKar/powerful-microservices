@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: users-citus-worker-headless
+spec:
+  clusterIP: None
+  selector:
+    app: users-citus-worker
+  ports:
+  - protocol: TCP
+    port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: users-citus-worker
+spec:
+  serviceName: users-citus-worker-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: users-citus-worker
+  template:
+    metadata:
+      labels:
+        app: users-citus-worker
+    spec:
+      containers:
+      - name: citus
+        image: citusdata/citus:12
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - localhost
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -h
+            - localhost
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: standard
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
