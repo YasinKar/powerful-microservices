@@ -1,3 +1,38 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orders-secret
+type: Opaque
+stringData:
+  ENVIRONMENT: "local"
+  API_V1_STR: "/api/v1"
+
+  MONGO_INITDB_ROOT_USERNAME: "root"
+  MONGO_INITDB_ROOT_PASSWORD: "example"
+  MONGO_INITDB_DATABASE: "mongodb"
+  MONGO_HOST: "orders-mongo"
+  MONGO_PORT: "27017"
+
+  KEYCLOAK_SERVER_URL: "http://keycloak:8080"
+  KEYCLOAK_CLIENT_ID: "test"
+  KEYCLOAK_CLIENT_SECRET_KEY: "Z53ikQLLC3Jum8WjQsXiaqGQPQyvUUuA"
+  KEYCLOAK_REALM_NAME: "test"
+
+  KAFKA_SERVER: "kafka:9092"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orders-media-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,6 +50,7 @@ spec:
       containers:
       - name: orders-service
         image: orders-service:latest
+        imagePullPolicy: Never
         command:
         - uvicorn
         - main:app
@@ -43,6 +79,14 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 5
+        volumeMounts:
+        - mountPath: /media
+          name: media-volume
+      volumes:
+      - name: media-volume
+        persistentVolumeClaim:
+          claimName: orders-media-pvc
+          
 ---
 apiVersion: v1
 kind: Service
@@ -56,6 +100,7 @@ spec:
     port: 8002
     targetPort: 8002
   type: ClusterIP
+
 ---
 apiVersion: apps/v1
 kind: Deployment

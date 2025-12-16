@@ -1,3 +1,44 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: products-secret
+type: Opaque
+stringData:
+  ENVIRONMENT: "local"
+  API_V1_STR: "/api/v1"
+
+  POSTGRES_SERVER: "products-postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "postgres"
+  POSTGRES_PASSWORD: "postgres"
+  POSTGRES_DB: "postgres"
+
+  REDIS_HOST: "products-redis"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+
+  KEYCLOAK_SERVER_URL: "http://keycloak:8080"
+  KEYCLOAK_CLIENT_ID: "test"
+  KEYCLOAK_CLIENT_SECRET_KEY: "Z53ikQLLC3Jum8WjQsXiaqGQPQyvUUuA"
+  KEYCLOAK_REALM_NAME: "test"
+
+  KAFKA_SERVER: "kafka:9092"
+
+  PYTHONPATH: "/app"
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: products-media-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,6 +56,7 @@ spec:
       containers:
       - name: products-service
         image: products-service:latest
+        imagePullPolicy: Never
         command:
         - uvicorn
         - main:app
@@ -43,6 +85,13 @@ spec:
           initialDelaySeconds: 10
           periodSeconds: 10
           failureThreshold: 5
+        volumeMounts:
+        - mountPath: /media
+          name: media-volume
+      volumes:
+      - name: media-volume
+        persistentVolumeClaim:
+          claimName: products-media-pvc
           
 ---
 apiVersion: v1
