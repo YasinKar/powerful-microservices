@@ -7,7 +7,6 @@ from fastapi import HTTPException, status
 from sqlmodel import select
 from sqlalchemy.sql import func
 
-from core.authentication import CurrentUserDep
 from dependencies import SessionDep
 from models.category import (
     Category, CategoryCreate,
@@ -26,13 +25,8 @@ class CategoryService:
     @staticmethod
     async def add_category(
         db: SessionDep,
-        category_data: CategoryCreate,
-        current_user: CurrentUserDep
-    ) -> Category:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to add category by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-        
+        category_data: CategoryCreate
+    ) -> Category:        
         existing_category = db.exec(select(Category).where(Category.name == category_data.name)).first()
         if existing_category:
             logger.warning(f"Category already exists: {category_data.name}")
@@ -49,12 +43,7 @@ class CategoryService:
     async def get_category(
         db: SessionDep,
         category_id: uuid.UUID,
-        current_user: CurrentUserDep
-    ) -> CategoryPublic:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to add category by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-        
+    ) -> CategoryPublic:        
         category = db.get(Category, category_id)
         if not category:
             logger.warning(f"Category not found: {category_id}")
@@ -99,11 +88,11 @@ class CategoryService:
         )
 
     @staticmethod
-    async def update_category(db: SessionDep, category_id: uuid.UUID, category_data: CategoryUpdate, current_user: CurrentUserDep) -> Category:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to update category by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def update_category(
+        db: SessionDep,
+        category_id: uuid.UUID,
+        category_data: CategoryUpdate,
+    ) -> Category:
         db_category = db.get(Category, category_id)
         if not db_category:
             logger.warning(f"Category not found: {category_id}")
@@ -126,11 +115,10 @@ class CategoryService:
         return db_category
 
     @staticmethod
-    async def delete_category(db: SessionDep, category_id: uuid.UUID, current_user: CurrentUserDep) -> None:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to delete category by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def delete_category(
+        db: SessionDep,
+        category_id: uuid.UUID
+    ) -> None:
         db_category = db.get(Category, category_id)
         if not db_category:
             logger.warning(f"Category not found: {category_id}")
@@ -146,11 +134,10 @@ class CategoryService:
         logger.info(f"Category deleted: {category_id}")
 
     @staticmethod
-    async def add_brand(db: SessionDep, brand_data: BrandCreate, current_user: CurrentUserDep) -> Brand:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to add brand by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def add_brand(
+        db: SessionDep,
+        brand_data: BrandCreate
+    ) -> Brand:
         existing_brand = db.exec(select(Brand).where(Brand.name == brand_data.name)).first()
         if existing_brand:
             logger.warning(f"Brand already exists: {brand_data.name}")
@@ -209,11 +196,11 @@ class CategoryService:
         )
 
     @staticmethod
-    async def update_brand(db: SessionDep, brand_id: uuid.UUID, brand_data: BrandUpdate, current_user: CurrentUserDep) -> Brand:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to update brand by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def update_brand(
+        db: SessionDep, 
+        brand_id: uuid.UUID, 
+        brand_data: BrandUpdate
+    ) -> Brand:
         db_brand = db.get(Brand, brand_id)
         if not db_brand:
             logger.warning(f"Brand not found: {brand_id}")
@@ -236,11 +223,10 @@ class CategoryService:
         return db_brand
 
     @staticmethod
-    async def delete_brand(db: SessionDep, brand_id: uuid.UUID, current_user: CurrentUserDep) -> None:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to delete brand by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def delete_brand(
+        db: SessionDep,
+        brand_id: uuid.UUID
+    ) -> None:
         db_brand = db.get(Brand, brand_id)
         if not db_brand:
             logger.warning(f"Brand not found: {brand_id}")

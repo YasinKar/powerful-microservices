@@ -1,19 +1,27 @@
 from typing import Optional
 import uuid
+import logging
 
-from fastapi import APIRouter, status
+from fastapi import (
+    APIRouter, status
+)
 
 from dependencies import SessionDep
-from core.authentication import CurrentUserDep
+from core.authentication import StaffUserDep
 from models.product import (
     PaginatedProducts, Product,
-    ProductUpdate, ProductCreate
+    ProductUpdate, ProductCreate,
 )
 from services.product_service import ProductService
 
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
+
+logger = logging.getLogger(__name__)
+
+
+### Product ###
 
 @router.get("/", response_model=PaginatedProducts)
 async def read_products(
@@ -39,16 +47,33 @@ async def read_product(product_id: uuid.UUID, db: SessionDep):
 
 
 @router.post("/", response_model=Product, status_code=status.HTTP_201_CREATED)
-async def create_product(product: ProductCreate, db: SessionDep, current_user: CurrentUserDep):
-    return await ProductService.add_product(db, product, current_user)
+async def create_product(
+    product: ProductCreate,
+    db: SessionDep,
+    current_user: StaffUserDep
+):
+    return await ProductService.add_product(db, product)
 
 
 @router.patch("/{product_id}", response_model=Product)
-async def update_product(product_id: uuid.UUID, product_update: ProductUpdate, db: SessionDep, current_user: CurrentUserDep):
-    return await ProductService.update_product(db, product_id, product_update, current_user)
+async def update_product(
+    product_id: uuid.UUID,
+    product_update: ProductUpdate,
+    db: SessionDep,
+    current_user: StaffUserDep
+):
+    return await ProductService.update_product(db, product_id, product_update)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(product_id: uuid.UUID, db: SessionDep, current_user: CurrentUserDep):
-    await ProductService.delete_product(db, product_id, current_user)
+async def delete_product(
+    product_id: uuid.UUID,
+    db: SessionDep,
+    current_user: StaffUserDep
+):
+    await ProductService.delete_product(db, product_id)
     return None
+
+
+### ProductImage ###
+

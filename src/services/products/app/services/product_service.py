@@ -1,39 +1,28 @@
 from typing import Optional
-import uuid
-import logging
-import math
-import json
+import uuid,logging, math, json
 
 from fastapi import HTTPException, status
 from sqlmodel import select, func, delete
 from sqlalchemy.orm import selectinload
 
-from core.authentication import CurrentUserDep
 from core.redis_cache import get_cache, set_cache
 from dependencies import SessionDep
 from models.product import (
     Product, ProductCreate,
     ProductUpdate, Category,
     Brand, ProductImage,
-    PaginatedProducts
+    PaginatedProducts, ProductImageCreate,
+    PaginatedProductImages, ProductImageUpdate
 )
 from models.outbox import Outbox
 
 
-logging.basicConfig(
-level=logging.INFO,
-format="%(asctime)s [%(levelname)s] %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
 class ProductService:
     @staticmethod
-    async def add_product(db: SessionDep, product_data: ProductCreate, current_user: CurrentUserDep) -> Product:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to add product by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def add_product(db: SessionDep, product_data: ProductCreate) -> Product:
         category = db.get(Category, product_data.category_id)
         if not category:
             logger.warning(f"Category not found: {product_data.category_id}")
@@ -60,14 +49,13 @@ class ProductService:
         try:
             db.add(db_product)
             db.add(outbox_entry)
+            # Add images after product ID is available
+            for image in product_data.images:
+                db_image = ProductImage(product_id=..., image_url=image.image_url, alt_text=image.alt_text)
+                db.add(db_image)
+
             db.commit()
             db.refresh(db_product)
-
-            # Add images after product ID is available
-            for image_url in product_data.images:
-                db_image = ProductImage(product_id=db_product.id, image_url=image_url)
-                db.add(db_image)
-            db.commit()
         except Exception as e:
             db.rollback()
             logger.error(f"Transaction failed: {e}")
@@ -77,29 +65,7 @@ class ProductService:
         return db_product
 
     @staticmethod
-    async def add_product_image(db: SessionDep, product_id: uuid.UUID, image_url: str, current_user: CurrentUserDep) -> ProductImage:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to add product image by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
-        product = db.get(Product, product_id)
-        if not product:
-            logger.warning(f"Product not found: {product_id}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-
-        db_image = ProductImage(product_id=product_id, image_url=image_url)
-        db.add(db_image)
-        db.commit()
-        db.refresh(db_image)
-        logger.info(f"Image added to product {product_id}")
-        return db_image
-
-    @staticmethod
-    async def update_product(db: SessionDep, product_id: uuid.UUID, product_data: ProductUpdate, current_user: CurrentUserDep) -> Product:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to update product by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def update_product(db: SessionDep, product_id: uuid.UUID, product_data: ProductUpdate) -> Product:
         db_product = db.get(Product, product_id)
         if not db_product:
             logger.warning(f"Product not found: {product_id}")
@@ -137,8 +103,8 @@ class ProductService:
                 # Delete old images
                 db.exec(delete(ProductImage).where(ProductImage.product_id == product_id))
                 # Add new images
-                for image_url in product_data.images:
-                    db_image = ProductImage(product_id=product_id, image_url=image_url)
+                for image in product_data.images:
+                    db_image = ProductImage(product_id=..., image_url=image.image_url, alt_text=image.alt_text)
                     db.add(db_image)
 
             db.add(db_product)
@@ -154,11 +120,7 @@ class ProductService:
         return db_product
 
     @staticmethod
-    async def delete_product(db: SessionDep, product_id: uuid.UUID, current_user: CurrentUserDep) -> None:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to delete product by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
+    async def delete_product(db: SessionDep, product_id: uuid.UUID) -> None:
         db_product = db.get(Product, product_id)
         if not db_product:
             logger.warning(f"Product not found: {product_id}")
@@ -185,21 +147,6 @@ class ProductService:
             raise HTTPException(status_code=500, detail="Failed to delete product")
 
         logger.info(f"Product deleted: {product_id}")
-
-    @staticmethod
-    async def delete_product_image(db: SessionDep, image_id: uuid.UUID, current_user: CurrentUserDep) -> None:
-        if "staff" not in current_user.permissions:
-            logger.warning(f"Unauthorized attempt to delete product image by user: {current_user.username}")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
-        db_image = db.get(ProductImage, image_id)
-        if not db_image:
-            logger.warning(f"Product image not found: {image_id}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product image not found")
-
-        db.delete(db_image)
-        db.commit()
-        logger.info(f"Product image deleted: {image_id}")
 
     @staticmethod
     async def get_product(db: SessionDep, product_id: uuid.UUID) -> Product:
@@ -321,3 +268,142 @@ class ProductService:
 
         logger.info(f"Stock updated for product {product_id}: {db_product.stock}")
         return db_product
+
+
+class ProductImageService:
+    @staticmethod
+    async def create_image(
+        db: SessionDep,
+        image_data: ProductImageCreate,
+        product_id: uuid.UUID,
+    ) -> ProductImage:
+        db_image = ProductImage(
+            product_id=product_id,
+            image_url=image_data.image_url,
+            alt_text=image_data.alt_text,
+        )
+
+        try:
+            db.add(db_image)
+            db.commit()
+            db.refresh(db_image)
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to create product image: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create product image"
+            )
+
+        logger.info(f"Product image created: {db_image.id}")
+        return db_image
+
+    @staticmethod
+    async def get_image(
+        db: SessionDep,
+        image_id: uuid.UUID
+    ) -> ProductImage:
+        image = db.get(ProductImage, image_id)
+        if not image:
+            logger.warning(f"Product image not found: {image_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product image not found"
+            )
+        return image
+
+    @staticmethod
+    async def get_images(
+        db: SessionDep,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> PaginatedProductImages:
+
+        if page < 1 or page_size < 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid pagination parameters"
+            )
+
+        total_items = db.exec(
+            select(func.count()).select_from(ProductImage)
+        ).one()
+
+        total_pages = math.ceil(total_items / page_size)
+
+        statement = (
+            select(ProductImage)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .order_by(ProductImage.id)
+        )
+
+        items = db.exec(statement).all()
+
+        return PaginatedProductImages(
+            items=items,
+            total_items=total_items,
+            total_pages=total_pages,
+            current_page=page,
+            page_size=page_size,
+        )
+    
+    @staticmethod
+    async def update_image(
+        db: SessionDep,
+        image_id: uuid.UUID,
+        image_data: ProductImageUpdate
+    ) -> ProductImage:
+
+        db_image = db.get(ProductImage, image_id)
+        if not db_image:
+            logger.warning(f"Product image not found: {image_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product image not found"
+            )
+
+        update_data = image_data.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_image, key, value)
+
+        try:
+            db.add(db_image)
+            db.commit()
+            db.refresh(db_image)
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to update product image: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update product image"
+            )
+
+        logger.info(f"Product image updated: {image_id}")
+        return db_image
+
+    @staticmethod
+    async def delete_image(
+        db: SessionDep,
+        image_id: uuid.UUID
+    ) -> None:
+        db_image = db.get(ProductImage, image_id)
+        if not db_image:
+            logger.warning(f"Product image not found: {image_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product image not found"
+            )
+
+        try:
+            db.delete(db_image)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Failed to delete product image: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete product image"
+            )
+
+        logger.info(f"Product image deleted: {image_id}")

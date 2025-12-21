@@ -7,6 +7,9 @@ from pydantic import PositiveInt, NonNegativeFloat
 from .category import Category, Brand
 
 
+### ProductImage ###
+
+
 class ProductImage(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     product_id: uuid.UUID = Field(foreign_key="product.id")
@@ -15,6 +18,27 @@ class ProductImage(SQLModel, table=True):
 
     # Use string annotation for the relationship
     product: "Product" = Relationship(back_populates="images")
+
+
+class ProductImageCreate(SQLModel):
+    image_url: str
+    alt_text: Optional[str] = None
+
+
+class ProductImageUpdate(SQLModel):
+    image_url: Optional[str] = None
+    alt_text: Optional[str] = None
+
+
+class PaginatedProductImages(SQLModel):
+    items: List[ProductImage]
+    total_items: int
+    total_pages: int
+    current_page: int
+    page_size: int
+
+
+### Product ###
 
 
 class Product(SQLModel, table=True):
@@ -43,7 +67,7 @@ class ProductCreate(SQLModel):
     brand_id: uuid.UUID
     is_active: bool = True
     rating: Optional[NonNegativeFloat] = None
-    images: List[str] = []
+    images: List[ProductImageCreate] = []
 
 
 class ProductUpdate(SQLModel):
@@ -55,7 +79,7 @@ class ProductUpdate(SQLModel):
     brand_id: Optional[uuid.UUID] = None
     is_active: Optional[bool] = None
     rating: Optional[NonNegativeFloat] = None
-    images: Optional[List[str]] = None
+    images: Optional[List[ProductImageUpdate]] = []
 
 
 class PaginatedProducts(SQLModel):

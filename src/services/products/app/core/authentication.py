@@ -76,3 +76,14 @@ async def keycloak_auth(request: Request, keycloak_openid=Depends(get_keycloak_c
 
 CurrentUserDep = Annotated[MockUser, Depends(keycloak_auth)]
 
+
+def StaffOnly(user: CurrentUserDep):
+    if "staff" not in user.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Staff permission required"
+        )
+    return user
+
+
+StaffUserDep = Annotated[MockUser, Depends(StaffOnly)]
