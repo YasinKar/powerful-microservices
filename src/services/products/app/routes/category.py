@@ -4,7 +4,6 @@ import uuid
 from fastapi import APIRouter, status
 
 from dependencies import SessionDep
-from core.authentication import StaffUserDep
 from models.category import (
     PaginatedCategories, Category,
     CategoryCreate, CategoryUpdate
@@ -18,7 +17,6 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 @router.get("/", response_model=PaginatedCategories)
 async def get_all_categories(
     db: SessionDep,
-    current_user: StaffUserDep,
     name: Optional[str] = None,
     is_active: Optional[bool] = None,
     page: int = 1,
@@ -31,9 +29,8 @@ async def get_all_categories(
 async def create_category(
     category: CategoryCreate,
     db: SessionDep,
-    current_user: StaffUserDep
 ):
-    return await CategoryService.add_category(db, category, current_user)
+    return await CategoryService.add_category(db, category)
 
 
 @router.get("/{category_id}", response_model=Category)
@@ -49,16 +46,14 @@ async def update_category(
     category_id: uuid.UUID,
     category_update: CategoryUpdate, 
     db: SessionDep, 
-    current_user: StaffUserDep
 ):
-    return await CategoryService.update_category(db, category_id, category_update, current_user)
+    return await CategoryService.update_category(db, category_id, category_update)
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
     category_id: uuid.UUID, 
-    db: SessionDep, 
-    current_user: StaffUserDep
+    db: SessionDep,
 ):
-    await CategoryService.delete_category(db, category_id, current_user)
+    await CategoryService.delete_category(db, category_id)
     return None

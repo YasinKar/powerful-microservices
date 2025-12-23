@@ -31,8 +31,8 @@ class ProductService:
         if not brand:
             logger.warning(f"Brand not found: {product_data.brand_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brand not found")
-
-        db_product = Product.model_validate(product_data)
+        
+        db_product = Product(**product_data.model_dump(exclude={'images'}))
 
         # Prepare event (use db_product before commit, as ID will be generated on add)
         event = {
@@ -51,7 +51,11 @@ class ProductService:
             db.add(outbox_entry)
             # Add images after product ID is available
             for image in product_data.images:
-                db_image = ProductImage(product_id=..., image_url=image.image_url, alt_text=image.alt_text)
+                db_image = ProductImage(
+                    product_id=db_product.id, 
+                    image_url=image.image_url, 
+                    alt_text=image.alt_text
+                )
                 db.add(db_image)
 
             db.commit()

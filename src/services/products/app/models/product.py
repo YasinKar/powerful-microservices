@@ -1,8 +1,13 @@
 import uuid
 from typing import Optional, List
 
+from fastapi import Form, File, UploadFile
+
 from sqlmodel import SQLModel, Field, Relationship
-from pydantic import PositiveInt, NonNegativeFloat
+from pydantic import (
+    PositiveInt, NonNegativeFloat,
+    field_validator, ValidationInfo
+)
 
 from .category import Category, Brand
 
@@ -58,6 +63,28 @@ class Product(SQLModel, table=True):
     images: List[ProductImage] = Relationship(back_populates="product")
 
 
+# class ProductCreateInput(SQLModel):
+#     name: str = Form()
+#     price: int = Form()
+#     description: Optional[str] = Form(None)
+#     stock: PositiveInt = Form(0)
+#     category_id: uuid.UUID = Form()
+#     brand_id: uuid.UUID = Form()
+#     is_active: bool = Form(True)
+#     rating: Optional[NonNegativeFloat] = Form(None)
+
+#     images: List[UploadFile] = File(None) 
+#     alt_texts: List[Optional[str]] = Form(None)
+
+#     @field_validator("alt_texts")
+#     @classmethod
+#     def validate_alt_texts(cls, alt_texts, info: ValidationInfo):
+#         images = info.data.get("images")
+#         if alt_texts and images and len(alt_texts) != len(images):
+#             raise ValueError("Number of alt_texts must match number of images")
+#         return alt_texts
+    
+
 class ProductCreate(SQLModel):
     name: str
     price: int
@@ -79,7 +106,7 @@ class ProductUpdate(SQLModel):
     brand_id: Optional[uuid.UUID] = None
     is_active: Optional[bool] = None
     rating: Optional[NonNegativeFloat] = None
-    images: Optional[List[ProductImageUpdate]] = []
+    images: List[ProductImageUpdate] = []
 
 
 class PaginatedProducts(SQLModel):

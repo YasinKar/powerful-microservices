@@ -1,4 +1,4 @@
-from typing import Literal, ClassVar
+from typing import Literal, ClassVar, Set
 from pathlib import Path
 
 from pydantic import (
@@ -10,6 +10,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     BASE_DIR: ClassVar[Path] = Path(__file__).resolve().parent.parent.parent
+        
+    MEDIA_ROOT: ClassVar[Path] = Path(__file__).resolve().parent.parent / "media" 
+
+    ALLOWED_UPLOAD_TYPES: ClassVar[Set[str]] = {
+        "video/mp4",
+        "image/webp",
+        "image/jpeg",
+        "image/png",
+    }
+
+    MAX_FILE_SIZE: ClassVar[int] = 5 * 1024 * 1024  # 5 MB
 
     LOGGING_CONFIG_FILE: ClassVar[Path] = Path(__file__).resolve().parent.parent / "logging.yaml"
 

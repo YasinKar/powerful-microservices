@@ -4,6 +4,7 @@ import yaml
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from core.config import settings
@@ -45,6 +46,12 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan
+)
+
+app.mount(
+    "/media",
+    StaticFiles(directory=settings.MEDIA_ROOT),
+    name="media",
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

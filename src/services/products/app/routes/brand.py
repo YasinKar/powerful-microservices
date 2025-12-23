@@ -4,7 +4,6 @@ import uuid
 from fastapi import APIRouter, status
 
 from dependencies import SessionDep
-from core.authentication import CurrentUserDep
 from models.category import (
     Brand, PaginatedBrands,
     BrandUpdate, BrandCreate
@@ -27,8 +26,8 @@ async def get_all_brands(
 
 
 @router.post("/", response_model=Brand, status_code=status.HTTP_201_CREATED)
-async def create_brand(brand: BrandCreate, db: SessionDep, current_user: CurrentUserDep):
-    return await CategoryService.add_brand(db, brand, current_user)
+async def create_brand(brand: BrandCreate, db: SessionDep):
+    return await CategoryService.add_brand(db, brand)
 
 
 @router.get("/{brand_id}", response_model=Brand)
@@ -37,11 +36,11 @@ async def get_brand(brand_id: uuid.UUID, db: SessionDep):
 
 
 @router.patch("/{brand_id}", response_model=Brand)
-async def update_brand(brand_id: uuid.UUID, brand_update: BrandUpdate, db: SessionDep, current_user: CurrentUserDep):
-    return await CategoryService.update_brand(db, brand_id, brand_update, current_user)
+async def update_brand(brand_id: uuid.UUID, brand_update: BrandUpdate, db: SessionDep ):
+    return await CategoryService.update_brand(db, brand_id, brand_update)
 
 
 @router.delete("/{brand_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_brand(brand_id: uuid.UUID, db: SessionDep, current_user: CurrentUserDep):
-    await CategoryService.delete_brand(db, brand_id, current_user)
+async def delete_brand(brand_id: uuid.UUID, db: SessionDep):
+    await CategoryService.delete_brand(db, brand_id)
     return None
