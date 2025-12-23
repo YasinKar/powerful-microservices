@@ -1,4 +1,4 @@
-# Keycloak Configuration Guide (Docker + PostgreSQL)
+# Keycloak Configuration Guide
 
 This document explains the full configuration flow of **Keycloak** using **Docker Compose** or **Kubernetes**, starting from initial admin setup to creating realms, clients, users, and etc.
 
