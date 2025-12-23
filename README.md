@@ -198,14 +198,39 @@ Each service is deployed independently and can scale horizontally.
 
 ---
 
-## Running the Project
+## References
 
-#### Prerequisites
+#### Kubernetes Deployment
 
-* Docker
-* Kubernetes (Minikube or K3s)
-* kubectl
-* Helm (optional)
+This project can be deployed and tested locally using **Minikube** and Kubernetes manifests.
+
+For detailed instructions including:
+- Building service images
+- Starting Minikube
+- Loading images into Minikube
+- Applying Kubernetes YAML files in the correct order
+
+Refer to: [Kubernetes Deployment](docs/kubernetes.md)
+
+This document explains the full Kubernetes execution flow step by step.
+
+---
+
+#### Keycloak Configuration
+
+Authentication and authorization are handled using **Keycloak**.
+
+The following topics are covered in detail:
+- Creating a Realm
+- Creating and configuring a Client
+- Enabling Direct Access Grants
+- Setting token lifetimes
+- Creating users and roles
+- Configuring environment variables for the users service
+
+Refer to: [Keycloak](docs/keycloak.md)
+
+This document provides a complete step-by-step guide for configuring Keycloak for this project.
 
 ---
 
