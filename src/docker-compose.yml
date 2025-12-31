@@ -14,8 +14,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.users_redis"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -43,8 +44,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.users_citus_coordinator"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -73,8 +75,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.users_citus_worker1"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -96,8 +99,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.users_citus_worker2"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -128,8 +132,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.users_service"
+        fluentd-async: "true"
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/admin"]
@@ -149,8 +154,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.products_redis"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -174,8 +180,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.products_db"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -211,8 +218,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.products_service"
+        fluentd-async: "true"
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/docs"]
@@ -242,8 +250,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.products_tracker"
+        fluentd-async: "true"
     restart: always
 
   # -------------------- Orders --------------------
@@ -263,8 +272,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.orders_mongodb"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -297,8 +307,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.orders_service"
+        fluentd-async: "true"
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/docs"]
@@ -328,8 +339,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.orders_tracker"
+        fluentd-async: "true"
     restart: always
 
   # -------------------- Notifications --------------------
@@ -345,8 +357,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.notifications_redis"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -376,8 +389,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.notifications_service"
+        fluentd-async: "true"
     restart: always
 
   notifications_consumer:
@@ -402,8 +416,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.notifications_consumer"
+        fluentd-async: "true"
     restart: always
     deploy:
       replicas: 3
@@ -439,8 +454,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.gateway"
+        fluentd-async: "true"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health/"]
       interval: 10s
@@ -472,8 +488,9 @@ services:
     logging:
       driver: fluentd
       options:
-        fluentd-address: "localhost:24224"
+        fluentd-address: "host.docker.internal:24224"
         tag: "docker.kafka"
+        fluentd-async: "true"
     depends_on:
       fluentd:
         condition: service_healthy
@@ -521,7 +538,8 @@ services:
       - "24224:24224"
       - "24224:24224/udp"
     volumes:
-      - ./fluentd/fluent.conf:/fluentd/etc/fluent.conf
+      - ./fluentd/conf:/fluentd/etc
+      # - ./fluentd/log:/fluentd/log
     depends_on:
         elasticsearch:
           condition: service_healthy
@@ -537,7 +555,6 @@ services:
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
-      - xpack.security.http.ssl.enabled=false
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms1g -Xmx1g
     networks:
@@ -559,7 +576,7 @@ services:
     networks:
       - logging_network
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=["http://elasticsearch:9200"]
     ports:
       - "5601:5601"
     depends_on:
