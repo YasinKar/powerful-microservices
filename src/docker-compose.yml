@@ -32,7 +32,7 @@ services:
     container_name: users_citus_coordinator
     restart: always
     env_file:
-      - ./services/users/.env
+      - ./users/.env
     ports:
       - "5433:5432"
     networks:
@@ -40,7 +40,7 @@ services:
       - logging_network
     volumes:
       - users_citus_coord_data:/var/lib/postgresql/data
-      - ./services/users/init_db:/docker-entrypoint-initdb.d
+      - ./users/init_db:/docker-entrypoint-initdb.d
     logging:
       driver: fluentd
       options:
@@ -108,14 +108,14 @@ services:
 
   users_service:
     build:
-      context: ./services/users
+      context: ./users
       dockerfile: Dockerfile
     container_name: users_service
     command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
     volumes:
-      - ./services/users:/app
+      - ./users:/app
     env_file:
-      - ./services/users/.env
+      - ./users/.env
     ports:
       - "8000"
     depends_on:
@@ -171,7 +171,7 @@ services:
     container_name: db_products
     restart: always
     env_file:
-      - ./services/products/.env
+      - ./products/.env
     volumes:
       - postgres_products_data:/var/lib/postgresql/data
     networks:
@@ -194,14 +194,14 @@ services:
 
   products_service:
     build:
-      context: ./services/products
+      context: ./products
       dockerfile: Dockerfile
     container_name: products_service
     command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8001 --workers 4"
     volumes:
-      - ./services/products/app:/app
+      - ./products/app:/app
     env_file:
-      - ./services/products/.env
+      - ./products/.env
     ports:
       - "8001"
     depends_on:
@@ -229,14 +229,14 @@ services:
 
   products_tracker:
     build:
-      context: ./services/products
+      context: ./products
       dockerfile: Dockerfile
     container_name: products_tracker
     command: python -m events.products_tracker
     volumes:
-      - ./services/products/app:/app
+      - ./products/app:/app
     env_file:
-      - ./services/products/.env
+      - ./products/.env
     depends_on:
       products_service:
         condition: service_healthy
@@ -262,9 +262,9 @@ services:
     command: ["--replSet", "rs0", "--auth", "--keyFile", "/etc/mongo-keyfile/keyfile"]
     restart: always
     env_file:
-      - ./services/orders/.env
+      - ./orders/.env
     volumes:
-      - ./services/orders/mongo_keyfile:/etc/mongo-keyfile
+      - ./orders/mongo_keyfile:/etc/mongo-keyfile
       - mongo_orders_data:/data/db
     networks:
       - services_network
@@ -285,14 +285,14 @@ services:
 
   orders_service:
     build:
-      context: ./services/orders
+      context: ./orders
       dockerfile: Dockerfile
     container_name: orders_service
     command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8002 --workers 4"
     volumes:
-      - ./services/orders/app:/app
+      - ./orders/app:/app
     env_file:
-      - ./services/orders/.env
+      - ./orders/.env
     ports:
       - "8002"
     depends_on:
@@ -318,14 +318,14 @@ services:
 
   orders_tracker:
     build:
-      context: ./services/orders
+      context: ./orders
       dockerfile: Dockerfile
     container_name: orders_tracker
     command: python -m events.orders_tracker
     volumes:
-      - ./services/orders/app:/app
+      - ./orders/app:/app
     env_file:
-      - ./services/orders/.env
+      - ./orders/.env
     depends_on:
       orders_service:
         condition: service_healthy
@@ -370,14 +370,14 @@ services:
 
   notifications_service:
     build:
-      context: ./services/notifications
+      context: ./notifications
       dockerfile: Dockerfile
     container_name: notifications_service
     command: sh -c "celery -A celery_app worker -l info"
     volumes:
-      - ./services/notifications/app:/app
+      - ./notifications/app:/app
     env_file:
-      - ./services/notifications/.env
+      - ./notifications/.env
     depends_on:
       notifications_redis:
         condition: service_healthy
@@ -396,13 +396,13 @@ services:
 
   notifications_consumer:
     build:
-      context: ./services/notifications
+      context: ./notifications
       dockerfile: Dockerfile
     command: python -m consumer
     volumes:
-      - ./services/notifications/app:/app
+      - ./notifications/app:/app
     env_file:
-      - ./services/notifications/.env
+      - ./notifications/.env
     depends_on:
       notifications_service:
         condition: service_started

@@ -173,13 +173,11 @@ flowchart TB
     ├── fluentd/                  # fluentd configs for log collection
     ├── gateway/                  # api gateway(fastapi app)
     ├── keycloak/                 # keycloak service(identity & access management)
-    ├── k8s/                      # k8s manifests
-    └── services/                 # core services
-        ├── users/                
-        ├── products/             
-        ├── orders/               
-        └── notifications/        
-
+    ├── k8s/                      # kubernetes major mainfests
+    ├── users/                    # users service
+    ├── products/                 # products service
+    ├── orders/                   # orders service
+    └── notifications/            # notifications service
 ```
 
 ---
