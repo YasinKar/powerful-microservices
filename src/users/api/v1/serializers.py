@@ -12,6 +12,8 @@ from rest_framework import serializers
 from api.models import ProfileModel
 from api.keycloak_service import UserKeyCloak, TokenKeycloak
 from events.kafka_producer import publish_event
+from events.schemas.user_registered import UserRegisteredEvent, UserRegisteredPayload
+from events.schemas.user_verified import UserVerifiedEvent, UserVerifiedPayload
 
 
 User = get_user_model() 
@@ -110,33 +112,18 @@ class SignUpSerializer(serializers.Serializer):
             timeout=10 * 60,
         )
 
-        if phone:
-            # Publish UserRegistered event in `notifications` topic -> Consumer: Notifications Service
-            event = {
-                "event_type": "UserRegistered",
-                "data": {
-                    "user_type": "phone",
-                    "username": validated_data['username'],
-                    "otp": otp,
-                },
-            }
-            publish_event(
-                topic="users",
-                value=event
-            )
-        if email:
-            event = {
-                "event_type": "UserRegistered",
-                "data": {
-                    "user_type": "email",
-                    "username": validated_data['username'],
-                    "otp": otp,
-                },
-            }
-            publish_event(
-                topic="users",
-                value=event
-            )
+        # Publish UserRegistered event in `notifications` topic -> Consumer: Notifications Service
+        payload = UserRegisteredPayload(
+            user_type="phone" if phone else "email",
+            username=validated_data["username"],
+            otp=otp,
+        )
+
+        event = UserRegisteredEvent.create(payload)
+        publish_event(
+            topic="users",
+            value=event.to_dict()
+        )
 
         return user
 
@@ -193,16 +180,15 @@ class VerifyUsernameSerializer(serializers.Serializer):
 
         phone, email = valid_username(validated_data['username'])
 
-        event = {
-            "event_type": "UserVerified",
-            "data": {
-                "username": validated_data['username'],
-                "user_type": "phone" if phone else "email",
-            },
-        }
+        payload = UserVerifiedPayload(
+            user_type="phone" if phone else "email",
+            username=validated_data["username"],
+        )
+
+        event = UserVerifiedEvent.create(payload)
         publish_event(
             topic="users",
-            value=event
+            value=event.to_dict()
         )
 
         return validated_data['username']
