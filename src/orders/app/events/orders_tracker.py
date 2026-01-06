@@ -62,7 +62,6 @@ def main():
                 data = json.loads(msg.value().decode("utf-8"))
                 topic = msg.topic()
                 event_type = data.get("event_type")
-                logger.info(event_type)
 
                 handler = EVENT_HANDLERS.get(topic, {}).get(event_type)
 

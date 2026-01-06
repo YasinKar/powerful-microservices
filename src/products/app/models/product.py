@@ -1,8 +1,7 @@
 import uuid
 from typing import Optional, List
 
-from fastapi import Form, File, UploadFile
-
+from sqlalchemy import Column, ForeignKey
 from sqlmodel import SQLModel, Field, Relationship
 from pydantic import (
     PositiveInt, NonNegativeFloat,
@@ -17,7 +16,12 @@ from .category import Category, Brand
 
 class ProductImage(SQLModel, table=True):
     id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
-    product_id: uuid.UUID = Field(foreign_key="product.id")
+    product_id: uuid.UUID = Field(
+        sa_column=Column(
+            ForeignKey("product.id", ondelete="CASCADE"),
+            nullable=False
+        )
+    )
     image_url: str
     alt_text: Optional[str] = None
 
@@ -60,7 +64,10 @@ class Product(SQLModel, table=True):
     # Relationships (these are fine as they use direct imports)
     category: Category = Relationship(back_populates="products")
     brand: Brand = Relationship(back_populates="products")
-    images: List[ProductImage] = Relationship(back_populates="product")
+    images: List[ProductImage] = Relationship(
+        back_populates="product",
+        sa_relationship_kwargs={"passive_deletes": True}
+    )
 
 
 # class ProductCreateInput(SQLModel):

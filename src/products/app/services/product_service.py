@@ -2,7 +2,7 @@ from typing import Optional
 import uuid,logging, math, json
 
 from fastapi import HTTPException, status
-from sqlmodel import select, func, delete
+from sqlmodel import select, func
 from sqlalchemy.orm import selectinload
 
 from core.redis_cache import get_cache, set_cache
@@ -15,6 +15,10 @@ from models.product import (
     PaginatedProductImages, ProductImageUpdate
 )
 from models.outbox import Outbox
+from events.schemas.product_created import ProductCreatedPayload, ProductCreatedEvent
+from events.schemas.product_updated import ProductUpdatedEvent, ProductUpdatedPayload
+from events.schemas.product_deleted import ProductDeletedEvent, ProductDeletedPayload
+from events.schemas.base import ProductEventDTO
 
 
 logger = logging.getLogger(__name__)
@@ -35,13 +39,14 @@ class ProductService:
         db_product = Product(**product_data.model_dump(exclude={'images'}))
 
         # Prepare event (use db_product before commit, as ID will be generated on add)
-        event = {
-            "event_type": "ProductCreated",
-            "product": db_product.model_dump(),
-        }
+        payload = ProductCreatedPayload(
+            product=ProductEventDTO.from_model(db_product)
+        )
+        event = ProductCreatedEvent.create(payload)
+
         outbox_entry = Outbox(
             topic="products",
-            value=json.dumps(event, default=str),
+            value=json.dumps(event.to_dict(), default=str),
             retry_count=0
         )
 
@@ -91,28 +96,30 @@ class ProductService:
             if key != "images":
                 setattr(db_product, key, value)
 
-        event = {
-            "event_type": "ProductUpdated",
-            "product": db_product.model_dump(),
-        }
+        payload = ProductUpdatedPayload(
+            product=ProductEventDTO.from_model(db_product)
+        )
+        event = ProductUpdatedEvent.create(payload)
+        
         outbox_entry = Outbox(
             topic="products",
-            value=json.dumps(event, default=str),
+            value=json.dumps(event.to_dict(), default=str),
             retry_count=0
         )
 
         # Atomic: Update product, handle images, add outbox
         try:
-            if product_data.images is not None:
-                # Delete old images
-                db.exec(delete(ProductImage).where(ProductImage.product_id == product_id))
-                # Add new images
-                for image in product_data.images:
-                    db_image = ProductImage(product_id=..., image_url=image.image_url, alt_text=image.alt_text)
-                    db.add(db_image)
-
             db.add(db_product)
             db.add(outbox_entry)
+            # Add images after product ID is available
+            for image in product_data.images:
+                db_image = ProductImage(
+                    product_id=db_product.id, 
+                    image_url=image.image_url, 
+                    alt_text=image.alt_text
+                )
+                db.add(db_image)
+
             db.commit()
             db.refresh(db_product)
         except Exception as e:
@@ -130,13 +137,14 @@ class ProductService:
             logger.warning(f"Product not found: {product_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
-        event = {
-            "event_type": "ProductDeleted",
-            "product": db_product.model_dump(),
-        }
+        payload = ProductDeletedPayload(
+            product=ProductEventDTO.from_model(db_product)
+        )
+        event = ProductDeletedEvent.create(payload)
+
         outbox_entry = Outbox(
             topic="products",
-            value=json.dumps(event, default=str),
+            value=json.dumps(event.to_dict(), default=str),
             retry_count=0
         )
 
