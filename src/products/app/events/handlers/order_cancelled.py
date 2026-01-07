@@ -1,4 +1,5 @@
 import logging
+
 from services.product_service import ProductService
 
 
@@ -7,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def handle_order_cancelled(session, data, consumer, msg):
     try:
-        order_items = data.get("order_items", [])
+        order_items = data.get("data").get("order_items", [])
 
         for item in order_items:
             product_id = item.get("product_id")

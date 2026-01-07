@@ -5,6 +5,5 @@ logger = logging.getLogger(__name__)
 
 def handle_product_updated(data):
     product = data.get("data").get("product")
-    logger.info(f"upppp : {product}")
     ProductService.update_product(product)
     logger.info(f"Product updated sync: {product.get('id')}")

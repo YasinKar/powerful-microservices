@@ -256,14 +256,14 @@ class ProductService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock")
         
 
-        event = {
-            "correlation_id": str(product_id),
-            "event_type": "ProductUpdated",
-            "product": db_product.model_dump(),
-        }
+        payload = ProductUpdatedPayload(
+            product=ProductEventDTO.from_model(db_product)
+        )
+        event = ProductUpdatedEvent.create(payload)
+        
         outbox_entry = Outbox(
             topic="products",
-            value=json.dumps(event, default=str)
+            value=json.dumps(event.to_dict(), default=str),
         )
 
         # Atomic: Use SQLAlchemy transaction

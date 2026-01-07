@@ -1,7 +1,6 @@
-import logging
+import logging, uuid, json
 from typing import Optional, List
 from datetime import datetime, timezone
-import uuid
 
 from fastapi import HTTPException
 
@@ -10,6 +9,9 @@ from models.cart import Cart
 from services.address_service import AddressService
 from services.cart_service import CartService
 from core.mongodb import db
+from events.schemas.order_cancelled import OrderCancelledPayload, OrderCancelledEvent
+from events.schemas.order_placed import OrderPlacedEvent, OrderPlacedPayload
+from events.schemas.base import OrderItemDTO
 
 
 logger = logging.getLogger(__name__)
@@ -79,18 +81,19 @@ class OrderService:
         order = OrderService.collection.find_one({"user_id": user_id, "id": order_id})
         if not order:
             return False
-        if order.get("status") not in ["pending", "paid"]:
+        if order.get("status") not in ["paid"]:
             return False  # Can't cancel shipped or delivered orders
         
-        event = {
-            "correlation_id": order_id,
-            "event_type": "OrderCancelled",
-            "order_items": order.get("items"),
-        }
+        payload = OrderCancelledPayload(
+            order_items=[OrderItemDTO.from_dict(item) for item in order.get("items")],
+            order_id=order_id
+        )
+        event = OrderCancelledEvent.create(payload)
+        
         outbox_entry = {
             "id": str(uuid.uuid4()),  # outbox ID
             "topic": "orders",
-            "value": event,
+            "value": json.dumps(event.to_dict(), default=str),
             "created_at": datetime.now(timezone.utc),
             "status": "pending"
         }
@@ -130,16 +133,17 @@ class OrderService:
             }
         }
 
-        event = {
-            "correlation_id": order_id,
-            "event_type": "OrderPlaced",
-            "order_items": order.get("items"),  
-        }
+        payload = OrderPlacedPayload(
+            order_items=[OrderItemDTO.from_dict(item) for item in order.get("items")],
+            order_id=order_id
+        )
+        event = OrderPlacedEvent.create(payload)
+        
         outbox_entry = {
-            "id": str(uuid.uuid4()),
+            "id": str(uuid.uuid4()),  # outbox ID
             "topic": "orders",
-            "value": event,
-            "created_at": now,
+            "value": json.dumps(event.to_dict(), default=str),
+            "created_at": datetime.now(timezone.utc),
             "status": "pending"
         }
 

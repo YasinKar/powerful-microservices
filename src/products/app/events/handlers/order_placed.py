@@ -1,6 +1,8 @@
 import logging
+
 from services.product_service import ProductService
 from events.kafka_producer import publish_event
+from events.schemas.order_placement_failed import OrderPlacementFailedEvent, OrderPlacementFailedPayload
 
 
 logger = logging.getLogger(__name__)
@@ -8,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 def handle_order_placed(session, data, consumer, msg):
     try:
-        order_items = data.get("order_items", [])
-        correlation_id = data.get("correlation_id")
+        order_items = data.get("data").get("order_items", [])
+        order_id = data.get("data").get("order_id")
 
         for item in order_items:
             product_id = item.get("product_id")
@@ -21,16 +23,15 @@ def handle_order_placed(session, data, consumer, msg):
         consumer.commit(msg)
 
     except Exception as e:
-        failure_event = {
-            "event_type": "OrderPlacementFailed",
-            "correlation_id": correlation_id,
-            "order_id": correlation_id,
-            "error": str(e)
-        }
+        payload = OrderPlacementFailedPayload(
+            error=str(e),
+            order_id=order_id
+        )
+        failure_event = OrderPlacementFailedEvent.create(payload)
 
         publish_event(
             topic="order_failures",
-            value=failure_event
+            value=failure_event.to_dict()
         )
 
         logger.error(f"OrderPlaced handler error: {e}")

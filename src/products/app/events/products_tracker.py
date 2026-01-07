@@ -54,6 +54,7 @@ def main():
 
             try:
                 data = json.loads(msg.value().decode("utf-8"))
+                data = json.loads(data)
                 event_type = data.get("event_type")
 
                 handler = HANDLERS.get(event_type)
