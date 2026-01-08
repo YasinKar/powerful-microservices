@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+  orders_mongodb:
+    image: mongo
+    container_name: orders_mongodb
+    command: ["--replSet", "rs0", "--auth", "--keyFile", "/etc/mongo-keyfile/keyfile"]
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+      - ./mongo_keyfile:/etc/mongo-keyfile
+      - mongo_orders_data:/data/db
+    networks:
+      - main_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+
+  orders_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orders_service
+    command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8002 --workers 4"
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    ports:
+      - "8002:8002"
+    depends_on:
+      orders_mongodb:
+        condition: service_healthy
+    networks:
+      - main_network
+      - keycloak_keycloak_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/docs"]
+      interval: 10s
+      retries: 5
+
+  orders_tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orders_tracker
+    command: python -m events.orders_tracker
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    depends_on:
+      orders_service:
+        condition: service_healthy
+    networks:
+      - main_network
+    restart: always
+
+volumes:
+  mongo_orders_data:
+
+networks:
+  main_network:
+    driver: bridge
+
+  keycloak_keycloak_network:
+    external: true

@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  notifications_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_notifications
+    volumes:
+      - redis_notifications_data:/data
+    networks:
+      - main_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  notifications_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: notifications_service
+    command: sh -c "celery -A celery_app worker -l info"
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    depends_on:
+      notifications_redis:
+        condition: service_healthy
+    networks:
+      - main_network
+    restart: always
+
+  notifications_consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m consumer
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    depends_on:
+      notifications_service:
+        condition: service_started
+    networks:
+      - main_network
+    restart: always
+
+volumes:
+  redis_notifications_data:
+
+networks:
+  main_network:
+    driver: bridge

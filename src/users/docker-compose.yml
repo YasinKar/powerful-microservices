@@ -1,0 +1,102 @@
+version: "3.9"
+
+services:
+  users_redis:
+    image: redis:7.0.11-alpine
+    container_name: redis_users
+    networks:
+      - main_network
+    volumes:
+      - redis_users_data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  users_citus_coordinator:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_coordinator
+    restart: always
+    env_file:
+      - ./.env
+    ports:
+      - "5433:5432"
+    networks:
+      - main_network
+    volumes:
+      - users_citus_coord_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  users_citus_worker1:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_worker1
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - main_network
+    volumes:
+      - users_citus_worker1_data:/var/lib/postgresql/data
+
+  users_citus_worker2:
+    image: citusdata/citus:12
+    platform: linux/amd64
+    container_name: users_citus_worker2
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    networks:
+      - main_network
+    volumes:
+      - users_citus_worker2_data:/var/lib/postgresql/data
+
+  users_service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: users_service
+    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      users_redis:
+        condition: service_healthy
+      users_citus_coordinator:
+        condition: service_healthy
+    networks:
+      - main_network
+      - keycloak_keycloak_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  users_citus_coord_data:
+  users_citus_worker1_data:
+  users_citus_worker2_data:
+  redis_users_data:
+
+networks:
+  main_network:
+    driver: bridge
+
+  keycloak_keycloak_network:
+    external: true
