@@ -12,7 +12,7 @@ services:
       - ./mongo_keyfile:/etc/mongo-keyfile
       - mongo_orders_data:/data/db
     networks:
-      - main_network
+      - orders_network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -34,7 +34,7 @@ services:
       orders_mongodb:
         condition: service_healthy
     networks:
-      - main_network
+      - orders_network
       - keycloak_keycloak_network
     restart: always
     healthcheck:
@@ -56,14 +56,14 @@ services:
       orders_service:
         condition: service_healthy
     networks:
-      - main_network
+      - orders_network
     restart: always
 
 volumes:
   mongo_orders_data:
 
 networks:
-  main_network:
+  orders_network:
     driver: bridge
 
   keycloak_keycloak_network:

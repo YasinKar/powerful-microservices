@@ -7,7 +7,7 @@ services:
     volumes:
       - redis_notifications_data:/data
     networks:
-      - main_network
+      - notifications_network
     restart: always
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -28,7 +28,7 @@ services:
       notifications_redis:
         condition: service_healthy
     networks:
-      - main_network
+      - notifications_network
     restart: always
 
   notifications_consumer:
@@ -44,12 +44,12 @@ services:
       notifications_service:
         condition: service_started
     networks:
-      - main_network
+      - notifications_network
     restart: always
 
 volumes:
   redis_notifications_data:
 
 networks:
-  main_network:
+  notifications_network:
     driver: bridge
