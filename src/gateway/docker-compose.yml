@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gateway
+    command: sh -c "uvicorn main:app --host 0.0.0.0 --port 8003 --workers 4"
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    networks:
+      - gateway_network
+    ports:
+      - "8003:8003"
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health/"]
+      interval: 10s
+      retries: 5
+      
+networks:
+  gateway_network:
+    driver: bridge
