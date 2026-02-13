@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 
-from api.models import ProfileModel
+from api.models import ProfileModel, Outbox
 from api.keycloak_service import UserKeyCloak, TokenKeycloak
 from events.kafka_producer import publish_event
 from events.schemas.user_registered import UserRegisteredEvent, UserRegisteredPayload
@@ -118,11 +118,11 @@ class SignUpSerializer(serializers.Serializer):
             username=validated_data["username"],
             otp=otp,
         )
-
         event = UserRegisteredEvent.create(payload)
-        publish_event(
+
+        Outbox.objects.create(
             topic="users",
-            value=event.to_dict()
+            value=json.dumps(event.to_dict(), default=str),
         )
 
         return user

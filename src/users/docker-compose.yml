@@ -67,7 +67,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: users_service
-    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    command: sh scripts/start_app.sh
     volumes:
       - .:/app
     env_file:
@@ -87,6 +87,26 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:8000/admin"]
       interval: 10s
       retries: 5
+
+  users_outbox_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: users_outbox_worker
+    command: sh scripts/start_outbox.sh
+    volumes:
+      - .:/app
+    env_file:
+      - ./.env
+    depends_on:
+      users_citus_coordinator:
+        condition: service_healthy
+      users_redis:
+        condition: service_healthy
+    networks:
+      - users_network
+      - keycloak_keycloak_network
+    restart: always
 
 volumes:
   users_citus_coord_data:
