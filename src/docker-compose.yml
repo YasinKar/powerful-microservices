@@ -141,6 +141,33 @@ services:
       interval: 10s
       retries: 5
 
+  users_outbox_worker:
+    build:
+      context: ./users
+      dockerfile: Dockerfile
+    container_name: users_outbox_worker
+    command: sh scripts/start_outbox.sh
+    volumes:
+      - ./users:/app
+    env_file:
+      - ./users/.env
+    depends_on:
+      users_citus_coordinator:
+        condition: service_healthy
+      users_redis:
+        condition: service_healthy
+    networks:
+      - services_network
+      - keycloak_keycloak_network
+      - logging_network
+    restart: always
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "host.docker.internal:24224"
+        tag: "docker.users_outbox_worker"
+        fluentd-async: "true"
+
   # -------------------- Products --------------------
   products_redis:
     image: redis:7.0.11-alpine
