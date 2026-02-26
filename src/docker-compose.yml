@@ -399,6 +399,34 @@ services:
         fluentd-async: "true"
     restart: always
 
+  orders_outbox_worker:
+    build:
+      context: ./orders
+      dockerfile: Dockerfile
+    container_name: orders_outbox_worker
+    command: python -m events.outbox_worker
+    volumes:
+      - ./orders/app:/app
+    env_file:
+      - ./orders/.env
+    depends_on:
+      orders_mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      fluentd:
+        condition: service_healthy
+    networks:
+      - services_network
+      - logging_network
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: "host.docker.internal:24224"
+        tag: "docker.orders_outbox_worker"
+        fluentd-async: "true"
+    restart: always
+
   # -------------------- Notifications --------------------
   notifications_redis:
     image: redis:7.0.11-alpine

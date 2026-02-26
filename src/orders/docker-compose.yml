@@ -59,6 +59,23 @@ services:
       - orders_network
     restart: always
 
+  orders_outbox_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orders_outbox_worker
+    command: python -m events.outbox_worker
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    depends_on:
+      orders_mongodb:
+        condition: service_healthy
+    networks:
+      - orders_network
+    restart: always
+
 volumes:
   mongo_orders_data:
 
