@@ -255,7 +255,7 @@ class ProductService:
             logger.warning(f"Insufficient stock for product {product_id}. Current: {db_product.stock}, Change: {quantity_change}")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insufficient stock")
         
-
+        db_product.stock = new_stock
         payload = ProductUpdatedPayload(
             product=ProductEventDTO.from_model(db_product)
         )
@@ -268,7 +268,6 @@ class ProductService:
 
         # Atomic: Use SQLAlchemy transaction
         try:
-            db_product.stock = new_stock
             db.add(db_product)
             db.add(outbox_entry)
             db.commit()
