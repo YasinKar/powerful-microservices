@@ -74,6 +74,23 @@ services:
       - products_network
     restart: always
 
+  products_outbox_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: products_outbox_worker
+    command: python -m events.outbox_worker
+    volumes:
+      - ./app:/app
+    env_file:
+      - ./.env
+    depends_on:
+      products_db:
+        condition: service_healthy
+    networks:
+      - products_network
+    restart: always
+
 volumes:
   postgres_products_data:
   redis_products_data:
