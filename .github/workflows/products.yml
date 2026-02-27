@@ -1,0 +1,77 @@
+name: Products CI/CD
+
+on:
+  push:
+    paths:
+      - "src/products/**"
+      - ".github/workflows/products.yml"
+  pull_request:
+    paths:
+      - "src/products/**"
+      - ".github/workflows/products.yml"
+
+concurrency:
+  group: products-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/products
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: src/products/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+
+      - name: Run tests
+        run: |
+          if ls tests/test_*.py >/dev/null 2>&1; then
+            pytest
+          else
+            echo "No tests found for products service. Skipping."
+          fi
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t products-service:${{ github.sha }} src/products
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRODUCTS_SSH_HOST }}
+          username: ${{ secrets.PRODUCTS_SSH_USER }}
+          port: ${{ secrets.PRODUCTS_SSH_PORT }}
+          key: ${{ secrets.PRODUCTS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd "${{ secrets.PRODUCTS_DEPLOY_PATH }}"
+            git fetch --all
+            git checkout "${{ github.ref_name }}"
+            git pull origin "${{ github.ref_name }}"
+            cd src/products
+            docker compose up -d --build
